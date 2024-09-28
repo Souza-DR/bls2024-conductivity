@@ -1,0 +1,1237 @@
+from fenics import * #ARRUMAR
+import numpy, time, random, sys, os
+from prettytable import PrettyTable
+import gfort2py as gf
+import matplotlib.pyplot as plt
+from pdb import set_trace
+        
+class Left(SubDomain):
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[0], 0.0, DOLFIN_EPS)
+
+class Right(SubDomain):
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[0], 1.0, DOLFIN_EPS)
+
+class Bottom(SubDomain):
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[1], 0.0, DOLFIN_EPS)
+
+class Top(SubDomain):
+    def inside(self, x, on_boundary):
+        return on_boundary and near(x[1], 1.0, DOLFIN_EPS)
+
+def tag_internal_boundary():
+  
+  tdim = mesh.topology().dim()
+  mesh.init(tdim-1, tdim)                        # Creates connectivities between facets and cells
+  facet_to_cell = mesh.topology()(tdim-1, tdim)  # MeshConnectivity object (stores connections between facets and cells)
+  domain_values = domains.array()                # For each cell, assumes 1 or 0 (depending on subdomain)
+  facet_values = int_boundary.array()            # For each facet, it will assume 1 if is an internal boundary and 0 otherwise
+
+  
+  for facet in range(len(facet_values)):
+      cells = facet_to_cell(facet)                 # Returns the index of the cells which are connected to this facet
+    
+      if len(cells) == 2:                           # If the facet is conected with two cells, then it is an internal facet
+          values = domain_values[cells]
+          if values[0] != values[1]:
+            facet_values[facet] = numpy.max(values) + (nsites-1)*numpy.min(values)
+            
+def omega(x):
+
+    for cell in cells(mesh):
+        p1 = numpy.array([cell.get_vertex_coordinates()[0], cell.get_vertex_coordinates()[1]])
+        p2 = numpy.array([cell.get_vertex_coordinates()[2], cell.get_vertex_coordinates()[3]])
+        p3 = numpy.array([cell.get_vertex_coordinates()[4], cell.get_vertex_coordinates()[5]])
+        ic = incenter(p1, p2, p3)
+
+        if ic[0] <= Aeps or ic[0] >= 1.0 - Aeps or ic[1] <= Aeps or ic[1] >= 1.0 - Aeps:
+            kmin = nsites
+        else:
+            kmin = 0
+            distmin = numpy.linalg.norm(ic - x[0:2])
+            for k in range(1, nsites):
+                dist = numpy.linalg.norm(ic - x[2*k:2*k+2])
+                if dist < distmin:
+                    kmin = k
+                    distmin = dist
+
+        domains.array()[cell.index()] = kmin
+
+def voronoi(x, draw):
+
+    An = 4
+    Ax = numpy.array([Aeps, 1.0 - Aeps, 1.0 - Aeps, Aeps, Aeps])
+    Ay = numpy.array([Aeps, Aeps, 1.0 - Aeps, 1.0 - Aeps, Aeps])
+    Aflag = numpy.array([4, 2, 3, 1, 4])
+
+    nsites = int(len(x)/2)
+    sites = numpy.zeros((nsites,2))
+    for i in range(nsites):
+        sites[i,:] = x[2*i:2*i+2]
+
+    vor = []    
+    if nsites >= 3:
+        SHARED_LIB_NAME=f'./libvoro.so'
+        MOD_FILE_NAME='voro.mod'
+
+        user_cache_dir = './gfortcache'
+        if not os.path.exists(user_cache_dir):
+        # Create the directory if necessary
+            os.makedirs(user_cache_dir)
+
+        x=gf.fFort(SHARED_LIB_NAME,MOD_FILE_NAME, cache_folder=user_cache_dir)
+        
+        nvmax = 500
+        nv = int(0)
+        vx = numpy.zeros(nvmax,dtype=float)
+        vy = numpy.zeros(nvmax,dtype=float)
+        vflag = numpy.zeros(nvmax,dtype=int)
+        sstart = numpy.zeros(nsites+1,dtype=int)
+        istop = int(0)
+        mydict = x.voronoi(nsites,sites.T,An,Ax,Ay,Aflag,nvmax,sstart,nv,vx,vy,vflag,istop)[1]
+        istop = (mydict)['istop']
+
+        if istop == 0:
+            sstart = (mydict)['sstart']
+            nv = (mydict)['nv']
+            vx = (mydict)['vx']
+            vy = (mydict)['vy']
+            vectorvflag = (mydict)['vflag']
+
+            #Ajustando os índices das células
+            for i in range(len(vectorvflag)):
+                if vectorvflag[i] > 0:
+                    vectorvflag[i] = vectorvflag[i] - 1
+
+            for i in range(nsites):
+                cell = []
+                for k in range(sstart[i] - 1,sstart[i+1] - 1):
+                    cell.append([[vx[k],vy[k]],vectorvflag[k]])
+                vor.append(cell)
+
+            if draw:
+                colors = sigma.astype(int)
+                x.drawvor(nsites,sites.T,colors,An,Ax,Ay,sstart,nv,vx,vy)
+    
+    if nsites == 2:
+        print('Warning: choose nsites >= 3')            
+        sys.exit()
+                    
+    return vor, istop
+
+def rotate(x):
+    return numpy.array([-x[1], x[0]])
+
+def incenter(A, B, C):
+    a = numpy.linalg.norm(B-C)
+    b = numpy.linalg.norm(C-A)
+    c = numpy.linalg.norm(A-B)
+    return numpy.array([(a*A[0]+b*B[0]+c*C[0])/(a+b+c), (a*A[1]+b*B[1]+c*C[1])/(a+b+c)])
+
+def xinit(ninit):
+    for j in range(ninit):
+        # Perturbando a solução e projetando em D = [Aeps, 1-Aeps]x[Aeps, 1-Aeps]
+        for i in range(2*nsites):
+            xini[i] = max(Aeps, min(1.0 - Aeps, solx[i] + 0.1*(2*random.random() - 1)))
+    return xini
+
+def noise():
+    noise_num = 0.0 
+    noise_denom = 0.0
+    g = []
+
+    solx = get_data(nsites)
+
+    #  Tag subdomains
+    omega(solx)
+    dx = Measure("dx", domain=mesh, subdomain_data=domains)
+
+    for alpha in range(nsources):
+        zeta_alpha = 1.0 / weightsG[alpha]
+        hsolve_clean = Function(W)
+        hsolve = Function(V1)
+        (htrial, zeta_1) = TrialFunctions(W)
+        (vtest, zeta_2) = TestFunctions(W) 
+
+        # Define PDE
+        a = 0.0
+        for i in range(nsites+1):
+            a = a + (inner(Constant(sigma[i]) * grad(htrial), grad(vtest)) + zeta_1 * vtest + htrial * zeta_2) * dx(i) 
+        L = (gvec_list[alpha])[0] * vtest * ds(1) + (gvec_list[alpha])[1] * vtest * ds(2) + (gvec_list[alpha])[2] * vtest * ds(3) + (gvec_list[alpha])[3] * vtest * ds(4)
+
+        # Compute solution of (2)-(3)
+        solve(a == L, hsolve_clean)
+        (hsolve_temp, csolve) = hsolve_clean.split(True)
+
+        # add noise to the data
+        max_hsolve = numpy.abs(hsolve_temp.vector()[:]).max()
+        h_perturb = numpy.random.default_rng(seed=123456).normal(loc= 0, scale=noise_coeff*max_hsolve, size=hsolve.vector()[:].size)
+        hsolve.vector()[:] = hsolve_temp.vector()[:] + h_perturb
+
+        noise_num = noise_num + zeta_alpha*assemble( (hsolve - hsolve_temp)**2 * dx ) 
+        noise_denom = noise_denom +  zeta_alpha*assemble( hsolve_temp**2 * dx )
+    
+    noise_level = numpy.sqrt(noise_num / noise_denom)
+    return noise_level
+
+def evalfg(n, x, vor, greq=False):
+    nsites = int(n/2)
+    sites = numpy.zeros((nsites,2))
+    for i in range(nsites):
+        sites[i,:] = x[2*i:2*i+2]
+    
+    omega(x)
+    dx = Measure("dx", domain=mesh, subdomain_data=domains)
+
+    int_boundary.set_all(0)
+    tag_internal_boundary()
+    dS_int = Measure("dS", domain=mesh, subdomain_data=int_boundary)
+
+    G = 0.0
+    gradGbound = numpy.zeros(2*nsites)
+
+    for alpha in range(nsources):
+ 
+        # Define rhs and lhs of PDE
+        a = 0.0
+        for i in range(nsites+1):
+            a = a + (Constant(sigma[i]) * inner(grad(utf), grad(wtest))) * dx(i)
+        L = (gvec_list[alpha])[0] * wtest * ds(1) + (gvec_list[alpha])[1] * wtest * ds(2)
+
+        # Assemble matrices
+        aa = assemble(a)
+        LL = assemble(L)
+
+        # Dirichlet boundary conditions, applied on top and bottom of square (Gamma_a)
+        DirichletBC(V1,h[alpha],bottom).apply(aa)
+        DirichletBC(V1,h[alpha],bottom).apply(LL)
+        DirichletBC(V1,h[alpha],top).apply(aa)
+        DirichletBC(V1,h[alpha],top).apply(LL)
+  
+        # Solve
+        solve(aa, usol.vector(), LL)
+
+        # Define rhs and lhs of PDE
+        a = 0.0
+        for i in range(nsites+1):
+            a = a + (Constant(sigma[i]) * inner(grad(vtf), grad(wtest))) * dx(i)
+        L = (gvec_list[alpha])[2] * wtest * ds(3) + (gvec_list[alpha])[3] * wtest * ds(4)
+
+        # Assemble matrices
+        aa = assemble(a)
+        LL = assemble(L)
+
+        # Dirichlet boundary conditions, applied on left and right of square (Gamma_b)
+        DirichletBC(V1,h[alpha],left).apply(aa)
+        DirichletBC(V1,h[alpha],left).apply(LL)
+        DirichletBC(V1,h[alpha],right).apply(aa)
+        DirichletBC(V1,h[alpha],right).apply(LL)
+
+        # Solve
+        solve(aa, vsol.vector(), LL)
+
+        # Compute cost function        
+        Galpha = assemble( (usol - vsol)**2 * dx )
+        if weightsG[alpha] == -1.0:
+            weightsG[alpha] = 1.0/Galpha
+    
+        G = G + 0.5 * weightsG[alpha] * Galpha
+        # print('Galpha =', Galpha)
+        
+        ### Boundary Expression ###
+        if greq:
+            # Define rhs and lhs of PDE
+            a = 0.0
+            for i in range(nsites+1):
+                a = a + (Constant(sigma[i]) * inner(grad(ptf), grad(wtest))) * dx(i)
+            L = - (usol - vsol) * wtest * dx
+
+            # Assemble matrices
+            aa = assemble(a)
+            LL = assemble(L)
+
+            # Dirichlet boundary conditions, applied on top and bottom of square (Gamma_a)
+            DirichletBC(V1,0.0,bottom).apply(aa)
+            DirichletBC(V1,0.0,bottom).apply(LL)
+            DirichletBC(V1,0.0,top).apply(aa)
+            DirichletBC(V1,0.0,top).apply(LL)
+
+            #Solve
+            solve(aa, psol.vector(), LL)
+
+            # Define rhs and lhs of PDE
+            a = 0.0
+            for i in range(nsites+1):
+                a = a + (Constant(sigma[i]) * inner(grad(qtf), grad(wtest))) * dx(i)
+            L = (usol - vsol) * wtest * dx
+
+            # Assemble matrices
+            aa = assemble(a)
+            LL = assemble(L)
+
+            # Dirichlet boundary conditions, applied on left and right of square (Gamma_b)
+            DirichletBC(V1,0.0,left).apply(aa)
+            DirichletBC(V1,0.0,left).apply(LL)
+            DirichletBC(V1,0.0,right).apply(aa)
+            DirichletBC(V1,0.0,right).apply(LL)
+
+            # Solve
+            solve(aa, qsol.vector(), LL)
+
+            # # Define rhs and lhs of PDE
+            a = 0.0
+            for i in range(nsites+1):
+                a = a + inner(grad(Htrial), grad(vhtest)) * dx(i)
+            L = (vhtest-vhtest)* dx
+
+            # Assemble matrices
+            aa = assemble(a)
+            LL = assemble(L)
+
+            # Dirichlet boundary conditions, applied on top and bottom of square (Gamma_a)
+            DirichletBC(V2,h[alpha],bottom).apply(aa)
+            DirichletBC(V2,h[alpha],bottom).apply(LL)
+            DirichletBC(V2,h[alpha],top).apply(aa)
+            DirichletBC(V2,h[alpha],top).apply(LL)
+            
+            # Dirichlet boundary conditions, applied on left and right of square (Gamma_b)
+            DirichletBC(V2,h[alpha],left).apply(aa)
+            DirichletBC(V2,h[alpha],left).apply(LL)
+            DirichletBC(V2,h[alpha],right).apply(aa)
+            DirichletBC(V2,h[alpha],right).apply(LL)
+            
+            # Solve
+            solve(aa, Hsol.vector(), LL)
+
+            for i in range(nsites):
+                    
+                grad_usol = grad(usol)
+                grad_vsol = grad(vsol)
+                grad_psol = grad(psol)
+                grad_qsol = grad(qsol)
+                grad_Hsol = grad(Hsol)
+
+                tempplus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+
+                S1plus = Identity(2)*tempplus 
+
+                S1plus = S1plus - outer(grad_psol('+'),Constant(sigma[i])*grad_usol('+')) - outer(Constant(sigma[i])*(grad_usol('+') - grad_Hsol('+')), grad_psol('+')) - outer(grad_qsol('+'),Constant(sigma[i])*grad_vsol('+')) - outer(Constant(sigma[i])*(grad_vsol('+') - grad_Hsol('+')),grad_qsol('+'))
+            
+
+                tempminus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
+
+                S1minus = Identity(2)*tempminus
+                
+                S1minus = S1minus - outer(grad_psol('-'),Constant(sigma[i])*grad_usol('-')) - outer(Constant(sigma[i])*(grad_usol('-') - grad_Hsol('-')), grad_psol('-')) - outer(grad_qsol('-'),Constant(sigma[i])*grad_vsol('-')) - outer(Constant(sigma[i])*(grad_vsol('-') - grad_Hsol('-')),grad_qsol('-'))
+
+                # tempplus = Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+
+                # S1plus = Identity(2)*tempplus 
+
+                # S1plus = S1plus - 2*outer(grad_psol('+'),Constant(sigma[i])*grad_usol('+')) - 2*outer(grad_qsol('+'),Constant(sigma[i])*grad_vsol('+'))
+
+                # tempminus = Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
+
+                # S1minus = Identity(2)*tempminus
+                
+                # S1minus = S1minus - 2*outer(grad_psol('-'),Constant(sigma[i])*grad_usol('-')) - 2*outer(grad_qsol('-'),Constant(sigma[i])*grad_vsol('-'))
+
+                for r in range(len(vor[i])):
+                    v = ((vor[i])[r])[0]
+                    vflag = ((vor[i])[r])[1]
+                    vnext = ((vor[i])[(r+1)%len(vor[i])])[0]
+
+                    if vflag >= 0:
+                        # The neighboring cells of the inner edge E are a_i and a_vflag
+                        nu = rotate(numpy.array(v) - numpy.array(vnext))/numpy.linalg.norm(numpy.array(v) - numpy.array(vnext))
+                        den = numpy.linalg.norm(sites[vflag,:] - sites[i, :])
+                        xi = int(numpy.max([vflag, i]) + (nsites-1)*numpy.min([vflag, i]))
+
+                        if i > vflag:
+                            S1nunu = S1plus[0,0] * nu[0] * nu[0] + S1plus[1,1] * nu[1] * nu[1] + (S1plus[0,1] + S1plus[1,0]) * nu[0] * nu[1]
+                            hkE0 = assemble(S1nunu*Expression("x[0] - ak", ak = sites[vflag,0], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            hkE1 = assemble(S1nunu*Expression("x[1] - ak", ak = sites[vflag,1], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            hiE0 = assemble(S1nunu*Expression("x[0] - ai", ai = sites[i, 0], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            hiE1 = assemble(S1nunu*Expression("x[1] - ai", ai = sites[i, 1], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                        else:
+                            S1nunu = S1minus[0,0] * nu[0] * nu[0] + S1minus[1,1] * nu[1] * nu[1] + (S1minus[0,1] + S1minus[1,0]) * nu[0] * nu[1]
+                            hkE0 = assemble(S1nunu*Expression("x[0] - ak", ak = sites[vflag,0], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            hkE1 = assemble(S1nunu*Expression("x[1] - ak", ak = sites[vflag,1], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            hiE0 = assemble(S1nunu*Expression("x[0] - ai", ai = sites[i, 0], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            hiE1 = assemble(S1nunu*Expression("x[1] - ai", ai = sites[i, 1], degree = 2)*dS_int(xi)+Constant(0)*dx)/den
+                            
+                        gradGbound[2*vflag:2*vflag+2] = gradGbound[2*vflag:2*vflag+2] - weightsG[alpha] * numpy.array([hkE0, hkE1])
+
+                        gradGbound[2*i:2*i+2] = gradGbound[2*i:2*i+2] + weightsG[alpha] * numpy.array([hiE0, hiE1]) 
+                             
+    if greq:
+        return G, gradGbound
+    else:
+        return G
+
+def newfvalues(f, fvalues):
+        M = len(fvalues)
+        if max(fvalues) == 0.0:
+            fvalues[0] = f
+        else:
+            oldfvalues = numpy.copy(fvalues[0:M-1])
+            fvalues[0] = f
+            fvalues[1:M] = oldfvalues
+        return fvalues
+
+def projectintoA(p):
+    p[0] = max(Aeps, min(p[0], 1.0 - Aeps))
+    p[1] = max(Aeps, min(p[1], 1.0 - Aeps))
+
+def project(n, x):
+    for i in range(int(n/2)):
+        projectintoA(x[2*i:2*i+2])
+
+def projectedgradient(n, x, epsg, maxit):
+    starttime = time.time()
+    project(n, x)
+
+    vor, vorflag = voronoi(x, draw = True)
+    if vorflag != 0:
+        print('In projectedgradient, voronoi diagram is not well defined at (projection of) the initial guess')
+        sys.exit()
+
+    global weightsG
+    weightsG = -numpy.ones(nsources)
+
+    f, g = evalfg(n, x, vor, greq = True)
+
+    M = 5
+    fvalues = numpy.zeros(M)
+    fvalues = newfvalues(f, fvalues)
+
+    numevalf = 1
+
+    gp = x - g
+    project(n, gp)
+    gp = gp - x
+    normgp = numpy.linalg.norm(gp)
+    
+    lamspg = 1.0
+    d = x - lamspg*g  
+    project(n, d)
+    d = d - x
+
+    # Saving the initial values of G(x^0) and |grad G(x^0)|
+    finit, normgpinit = f, normgp
+
+    iter = 0
+
+    myTable = PrettyTable(["iter", "fcnt", "G", "||gP||", 'normxdiff', "x"])
+    myTable.add_row([iter, numevalf, f, normgp, 0.0, x])
+    data = myTable.get_string()
+    with open('./saida.txt', 'w') as txt:
+        txt.write(data)
+    print(myTable)
+    smallstep = False
+    smallxdiff = False
+    TIME = False
+    while normgp > epsg and iter < maxit and not smallstep and not smallxdiff and not TIME:
+        iter = iter + 1
+
+        alpha = 1.0
+        xtrial = x + alpha * d
+        vor, vorflag = voronoi(xtrial, draw = False)
+        if vorflag != 0:
+            ftrial = float('inf')
+        else:
+            ftrial = evalfg(n, xtrial, vor)
+            numevalf = numevalf + 1
+
+        print('-->', alpha, ftrial, numevalf)
+        
+        gtd = numpy.inner(g, d)
+
+        fmax = max(fvalues)
+
+        while not (ftrial <= fmax + 1E-4 * alpha * gtd) and not smallstep:
+            atrial = (- gtd * alpha**2) / (2.0*(ftrial - f - alpha * gtd))
+            if not (0.1*alpha <= atrial and atrial <= 0.9*alpha):
+                atrial = alpha / 2
+            alpha = atrial
+            xtrial = x + alpha * d
+            vor, vorflag = voronoi(xtrial, draw = False)
+            if vorflag != 0:
+                ftrial = float('inf')
+            else:
+                ftrial = evalfg(n, xtrial, vor)
+                numevalf = numevalf + 1
+
+            print('-->', alpha, ftrial, numevalf)
+        
+            if alpha < 1E-6:
+                smallstep = True
+
+        xdiff = xtrial - x
+
+        x = xtrial
+        vor, vorflag = voronoi(x, draw = True)
+        if vorflag != 0:
+            print('In projectedgradient, vorflag must be zero here and it is not.')
+
+        gdiff = g
+
+        f, g = evalfg(n, x, vor, greq = True)
+
+        numevalf = numevalf + 1
+
+        fvalues = newfvalues(f, fvalues)
+
+        gdiff = g - gdiff
+
+        gp = x - g
+        project(n, gp)
+        gp = gp - x
+        normgp = numpy.linalg.norm(gp)
+
+        lamspg = max(1.0E-3, min(numpy.inner(xdiff, xdiff) / numpy.inner(xdiff, gdiff), 1.0E+3))
+        d = x - lamspg*g
+        project(n, d)
+        d = d - x
+
+        myTable.add_row([iter, numevalf, f, normgp, numpy.linalg.norm(xdiff),  x])
+        data = myTable.get_string()
+        with open('./saida.txt', 'w') as txt:
+            txt.write(data)
+        print(myTable)
+
+        if numpy.linalg.norm(xdiff) < 1.0E-6:
+            smallxdiff = True
+
+        finaltime = time.time()
+        CPU_time = finaltime - starttime
+
+        if CPU_time >= 10800*nsources:
+            TIME = True
+            
+
+    if iter > maxit-1:
+        print('Maximum number of iterations reached')
+        flagsol = 0
+    elif normgp <= epsg:
+        print('Small search direction')
+        flagsol = 1
+    elif smallstep:
+        print('Too small step in line search')
+        flagsol = 2
+    elif smallxdiff:
+        print("Lack of progress in the movement of sites.")
+        flagsol = 3
+    elif TIME:
+        print('Timeout exceeded')
+        flagsol = 4
+    else:
+        print('In projectedgradient, main loop ended by an unknown criterion.')
+        flagsol = -1
+    
+    return flagsol, x, finit, normgpinit, f, normgp, iter, numevalf
+    
+    
+def randomInit(ntrials, nsites):
+    Gtrial = numpy.zeros(ntrials)
+    xtrial_mat = numpy.random.rand(2*nsites, ntrials)  
+    
+    for k in range(ntrials):
+        xtrial = xtrial_mat[:,k]
+        vor, istop = voronoi(xtrial, draw = False)
+        if istop != 0:
+            print('The Voronoi method encountered an error when constructing a diagram from a random initialization.')
+            sys.exit()
+        Gtrial[k] = evalfg(2*nsites, xtrial, vor)
+    
+    print('---------------------')        
+    print('Random initialization')    
+    print('Gtrial = ', Gtrial)
+    print('---------------------')        
+
+    kmin = numpy.argmin(Gtrial)        
+    xiniRand = xtrial_mat[:,kmin]
+    
+    return xiniRand
+
+
+def vorDiag(sigma, m, mesh, V, sites):
+    # Create a MeshFunction to store values on cells
+    cell_values = MeshFunction('double', mesh, dim=2)
+
+    domains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
+    domain_values = domains.array() 
+
+    # Assign values to each cell
+    for cell in cells(mesh):
+        # The index() function returns the index of the cell
+        #cell_values[cell] = cell.index()
+        vertex_coordinates = cell.get_vertex_coordinates()
+        # Print the coordinates
+        #print(f"Coordinates of cell {cell.index()}: {vertex_coordinates}")    
+    
+        midpoint_x = (vertex_coordinates[0] + vertex_coordinates[2] + vertex_coordinates[4])/3.0
+        midpoint_y = (vertex_coordinates[1] + vertex_coordinates[3] + vertex_coordinates[5])/3.0
+       
+        #print('vertex_coordinates = ',vertex_coordinates)
+        dist = numpy.zeros(m) 
+        for k in range(m):
+            dist[k] = (midpoint_x - sites[2*k])**2 + (midpoint_y - sites[2*k+1])**2  
+    
+        cell_values[cell] = sigma[numpy.argmin(dist)]
+        domain_values[cell.index()] = numpy.argmin(dist) # mark the subdomains with the index of the Voronoi cell
+    
+    f = Function(V)
+
+    dm = V.dofmap()
+    for cell in cells(mesh):
+        f.vector()[dm.cell_dofs(cell.index())] = cell_values[cell] 
+        
+    return f
+
+
+def plotVor(sigma, nsites, mesh, V, solx, xini, xfinal):
+
+    ground = vorDiag(sigma, nsites, mesh, V, solx)  
+  
+    fini = vorDiag(sigma, nsites, mesh, V, xini)  
+
+    fopt = vorDiag(sigma, nsites, mesh, V, xfinal)  
+
+    groundnorm = assemble( ground * dx )
+    error_init = assemble( abs(fini - ground) * dx )/groundnorm
+    error_opt = assemble( abs(fopt - ground) * dx )/groundnorm
+
+    print('error_init = ', error_init)
+    print('error_opt = ', error_opt)
+
+    return error_opt, error_init 
+
+def get_data(nsites):
+    #----------------
+    # Ground truth data
+    #----------------
+    if nsites == 2:
+        print('Warning: choose nsites >= 3')            
+        sys.exit()
+    if nsites == 3:
+        solx = numpy.array([0.23, 0.65,
+                            0.87, 0.78,
+                            0.72, 0.32])
+    if nsites == 4:
+        solx = numpy.array([0.17, 0.89,
+                            0.25, 0.20,
+                            0.64, 0.41,
+                            0.73, 0.93])
+    if nsites == 5:
+        solx = numpy.array([0.23, 0.91,
+                            0.24, 0.33,
+                            0.93, 0.38,
+                            0.90, 0.85,
+                            0.45, 0.54])
+    if nsites == 6:
+        solx = numpy.array([0.56, 0.67,
+                            0.42, 0.37,
+                            0.91, 0.10,
+                            0.15, 0.50,
+                            0.90, 0.86,
+                            0.18, 0.90])
+    if nsites == 7:
+        solx = numpy.array([0.15, 0.94,
+                            0.21, 0.47,
+                            0.83, 0.39,
+                            0.14, 0.10,
+                            0.89, 0.78,
+                            0.49, 0.76,
+                            0.52, 0.30])
+    if nsites == 8:
+        solx = numpy.array([0.41, 0.29,
+                            0.16, 0.54,
+                            0.80, 0.48,
+                            0.14, 0.10,
+                            0.90, 0.85,
+                            0.51, 0.77,
+                            0.91, 0.21,
+                            0.13, 0.96])
+    if nsites == 9:
+        solx = numpy.array([0.50, 0.21,
+                            0.60, 0.25,
+                            0.37, 0.11,
+                            0.37, 0.87,
+                            0.88, 0.69,
+                            0.10, 0.85,
+                            0.79, 0.71,
+                            0.24, 0.17,
+                            0.43, 0.80])
+    if nsites == 10:
+        solx = numpy.array([0.38, 0.78,
+                            0.55, 0.33,
+                            0.31, 0.84,
+                            0.50, 0.49,
+                            0.16, 0.36,
+                            0.44, 0.15,
+                            0.28, 0.69,
+                            0.57, 0.13,
+                            0.45, 0.44,
+                            0.51, 0.89])
+    if nsites == 11:    
+        solx = numpy.array([0.15, 0.30,
+                            0.51, 0.31,
+                            0.71, 0.80,
+                            0.32, 0.81,
+                            0.70, 0.17,
+                            0.89, 0.73,
+                            0.52, 0.57,
+                            0.74, 0.48,
+                            0.76, 0.12,
+                            0.61, 0.36,
+                            0.20, 0.75])
+    if nsites == 12:
+        solx = numpy.array([0.89, 0.36,
+                            0.70, 0.70,
+                            0.31, 0.82,
+                            0.16, 0.63,
+                            0.50, 0.37,
+                            0.71, 0.89,
+                            0.42, 0.80,
+                            0.87, 0.19,
+                            0.25, 0.16,
+                            0.60, 0.21,
+                            0.27, 0.89,
+                            0.35, 0.14])
+    if nsites == 13:
+        solx = numpy.array([0.71, 0.80, 
+                            0.32, 0.81,
+                            0.70, 0.17,
+                            0.74, 0.69,
+                            0.52, 0.57,
+                            0.74, 0.48,
+                            0.76, 0.12,
+                            0.61, 0.36,
+                            0.18, 0.73,
+                            0.75, 0.37,
+                            0.19, 0.34,
+                            0.18, 0.19,
+                            0.38, 0.86])
+    if nsites == 14:
+        solx = numpy.array([0.20, 0.39,
+                            0.12, 0.35,
+                            0.10, 0.56,
+                            0.42, 0.71,
+                            0.65, 0.13,
+                            0.29, 0.77,
+                            0.21, 0.15,
+                            0.31, 0.55,
+                            0.82, 0.45,
+                            0.58, 0.36,
+                            0.32, 0.88,
+                            0.09, 0.73,
+                            0.75, 0.83,
+                            0.54, 0.58])
+    if nsites == 15:
+        solx = numpy.array([0.41, 0.29,
+                            0.16, 0.54,
+                            0.80, 0.48,
+                            0.14, 0.10,
+                            0.90, 0.85,
+                            0.51, 0.80,
+                            0.91, 0.21,
+                            0.15, 0.90,
+                            0.53, 0.06,
+                            0.50, 0.50,
+                            0.20, 0.75,
+                            0.68, 0.97,
+                            0.13, 0.34,
+                            0.67, 0.27,
+                            0.70, 0.07])
+
+    if nsites == 16:
+        solx = numpy.array([0.90, 0.90,
+                            0.15, 0.90,
+                            0.20, 0.29,
+                            0.10, 0.79,
+                            0.58, 0.11,
+                            0.22, 0.77,
+                            0.32, 0.64,
+                            0.55, 0.61,
+                            0.43, 0.27,
+                            0.11, 0.56,
+                            0.75, 0.40,
+                            0.90, 0.11,
+                            0.37, 0.26,
+                            0.46, 0.75,
+                            0.33, 0.45,
+                            0.65, 0.65])
+
+    if nsites == 17:
+        solx = numpy.array([0.61, 0.85,
+                            0.50, 0.10,
+                            0.88, 0.50,
+                            0.22, 0.86,
+                            0.82, 0.62,
+                            0.57, 0.50,
+                            0.76, 0.53,
+                            0.10, 0.35,
+                            0.15, 0.16,
+                            0.77, 0.40,
+                            0.85, 0.20,
+                            0.38, 0.45,
+                            0.44, 0.84,
+                            0.85, 0.80,
+                            0.39, 0.70,
+                            0.28, 0.59,
+                            0.63, 0.73])
+
+    if nsites == 18:
+        solx = numpy.array([0.59, 0.28,
+                            0.70, 0.82,
+                            0.19, 0.60,
+                            0.60, 0.53,
+                            0.67, 0.32,
+                            0.39, 0.66,
+                            0.16, 0.37,
+                            0.54, 0.65,
+                            0.17, 0.86,
+                            0.38, 0.20,
+                            0.44, 0.86,
+                            0.53, 0.56,
+                            0.75, 0.36,
+                            0.77, 0.59,
+                            0.23, 0.53,
+                            0.18, 0.56,
+                            0.39, 0.87,
+                            0.88, 0.15])
+
+    if nsites == 19:
+        solx = numpy.array([0.03, 0.42,
+                            0.37, 0.03,
+                            0.32, 0.90,
+                            0.22, 0.58,
+                            0.88, 0.14,
+                            0.65, 0.83,
+                            0.90, 0.54,
+                            0.50, 0.70,
+                            0.38, 0.23,
+                            0.10, 0.75,
+                            0.40, 0.50,
+                            0.79, 0.96,
+                            0.77, 0.56,
+                            0.85, 0.23,
+                            0.25, 0.45,
+                            0.86, 0.46,
+                            0.55, 0.23,
+                            0.66, 0.46,
+                            0.90, 0.74])
+
+    return solx
+
+
+    
+################## 
+################## 
+# MAIN ALGORITHM
+##################
+##################
+
+# Start Time
+starttime = time.time()
+
+nsites = int(sys.argv[1])
+ninit = int(sys.argv[2])
+nsources = int(sys.argv[3])
+nmesh = int(sys.argv[4])
+noise_coeff = float(sys.argv[5])
+typeProblem = int(sys.argv[6])
+typeinit = int(sys.argv[7])
+Num = int(sys.argv[8])
+Aeps = float(sys.argv[9])
+
+equidist = False
+binary = False
+ternary = False
+
+if typeProblem == 1:
+    equidist = True
+elif typeProblem == 2:
+    binary = True
+elif typeProblem == 3:
+    ternary = True
+else:
+    print("Invalid value for the problem type (choose 1, 2, or 3).")
+    sys.exit()
+
+# Create unit square mesh
+mesh = UnitSquareMesh(nmesh,nmesh, 'crossed')
+# Build function space with Lagrange multiplier
+P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+V1 = FunctionSpace(mesh, P1)
+R = FiniteElement("Real", mesh.ufl_cell(), 0)
+W = FunctionSpace(mesh, P1 * R)
+P2 = FiniteElement("Lagrange", mesh.ufl_cell(), 2)
+V2 = FunctionSpace(mesh, P2)
+
+# Define domains
+domains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
+
+# Definindo o domínio triangular de integração
+# triangdomains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
+
+# Define internal interface domain
+int_boundary = MeshFunction("size_t", mesh, mesh.topology().dim()-1, 0)
+
+# Definindo o domínio linear de integração
+# intboundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
+
+#Funções phi_l que definem o domínio D: left-> phi_1 = -x[0], right-> phi_2 = x[0] - 1, top-> phi_3 = -x[1], bottom-> phi_4 = x[1] - 1 
+#Gradientes:
+
+gradphi_1 = [-1.0, 0.0]
+gradphi_2 = [1.0, 0.0]
+gradphi_3 = [0.0, -1.0]
+gradphi_4 = [0.0, 1.0]
+gradphi = [[0.0, 0.0], gradphi_1, gradphi_2, gradphi_3, gradphi_4]
+
+#----------------
+# Data
+#----------------
+sigma = numpy.ones(nsites+1)
+if equidist:
+    for l in range(nsites):
+        sigma[l] = l + 1
+if binary:
+    sigma[0:int(numpy.ceil(nsites/2))] = [5.0]
+    sigma[int(numpy.ceil(nsites/2)):nsites] = [10.0]
+if ternary:
+    ternary_values = numpy.array([3.0, 6.0, 9.0])
+    for l in range(nsites):
+        for i in range(3):
+            if l % 3 == i:
+                sigma[l] = ternary_values[i]
+
+
+gvec_list = [as_vector([Constant("1.0"), Constant("1.0"), Constant("-1.0"), Constant("-1.0")]), as_vector([Constant("1.0"), Constant("-1.0"), Constant("1.0"), Constant("-1.0")]), as_vector([Constant("1.0"), Constant("-1.0"), Constant("-1.0"), Constant("1.0")])]
+
+# gbar_list = [Expression("cos(pi*x[0])*cos(pi*x[1])", degree=2), Expression("cos(2*pi*x[0])*cos(2*pi*x[1])", degree=2), Expression("cos(3*pi*x[0])*cos(3*pi*x[1])", degree=2)]
+
+# gradgbar_list = [as_vector([Expression("-pi*sin(pi*x[0])*cos(pi*x[1])", degree=2), Expression("-pi*cos(pi*x[0])*sin(pi*x[1])", degree=2)]), as_vector([Expression("-2*pi*sin(2*pi*x[0])*cos(2*pi*x[1])", degree=2), Expression("-2*pi*cos(2*pi*x[0])*sin(2*pi*x[1])", degree=2)]), as_vector([Expression("-3*pi*sin(3*pi*x[0])*cos(3*pi*x[1])", degree=2), Expression("-3*pi*cos(3*pi*x[0])*sin(3*pi*x[1])", degree=2)])]
+
+# if nsources == 1:
+#     gbar = gbar_list[0:1]
+#     gradgbar = gradgbar_list[0:1]
+# if nsources == 2:
+#     gbar = gbar_list[0:2]
+#     gradgbar = gradgbar_list[0:2]
+# if nsources == 3:
+#     gbar = gbar_list[0:3]
+#     gradgbar = gradgbar_list[0:3]
+# if nsources >= 4:
+#     print('The maximum number of sources is 3')
+#     sys.exit()
+    
+
+solx = get_data(nsites)
+
+# Determinando os vértices das células de Voronoi
+vor, istop = voronoi(solx, draw = False)
+if istop != 0:
+    print('The Voronoi method encountered an error while constructing the manufactured solution')
+    sys.exit()
+    
+#  Tag subdomains
+omega(solx)
+
+dx = Measure("dx", domain=mesh, subdomain_data=domains)
+
+# Tag boundaries of A
+left   = Left()
+top    = Top()
+right  = Right()
+bottom = Bottom()
+aboundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+# aboundaries.set_all(0)
+left.mark(  aboundaries, 1)
+right.mark( aboundaries, 2)
+top.mark(   aboundaries, 3)
+bottom.mark(aboundaries, 4)
+
+ds = Measure("ds")(subdomain_data=aboundaries)
+
+h = []
+g = []
+for alpha in range(nsources):
+
+    hsolve_clean = Function(W)
+    hsolve = Function(V1)
+    (htrial, zeta_1) = TrialFunctions(W)
+    (vtest, zeta_2) = TestFunctions(W) 
+
+    # Define PDE
+    a = 0.0
+    for i in range(nsites+1):
+        a = a + (inner(Constant(sigma[i]) * grad(htrial), grad(vtest)) + zeta_1 * vtest + htrial * zeta_2) * dx(i) 
+    L = (gvec_list[alpha])[0] * vtest * ds(1) + (gvec_list[alpha])[1] * vtest * ds(2) + (gvec_list[alpha])[2] * vtest * ds(3) + (gvec_list[alpha])[3] * vtest * ds(4)
+
+    # Compute solution
+    solve(a == L, hsolve_clean)
+    (hsolve_temp, csolve) = hsolve_clean.split(True)
+
+    # add noise to the data
+    max_hsolve = numpy.abs(hsolve_temp.vector()[:]).max()
+    h_perturb = numpy.random.default_rng(seed=123456).normal(loc= 0, scale=noise_coeff*max_hsolve, size=hsolve.vector()[:].size)
+    hsolve.vector()[:] = hsolve_temp.vector()[:] + h_perturb
+
+    # save data
+    h.append(hsolve)
+
+
+# Define trial functions, test functions and solutions
+utf = TrialFunction(V1)
+vtf = TrialFunction(V1)
+ptf = TrialFunction(V1)
+qtf = TrialFunction(V1)
+wtest = TestFunction(V1)
+usol = Function(V1)
+vsol = Function(V1)
+psol = Function(V1)
+qsol = Function(V1)
+Hsol = Function(V2)
+Htrial = TrialFunction(V2)
+vhtest = TestFunction(V2)
+
+#Initial parameter for projected gradient
+maxit = 500
+epsg = 1E-6
+random.seed(123456)
+xini = numpy.zeros(2*nsites)
+
+if typeinit == 1:
+    xini = xinit(ninit)
+elif typeinit == 2:
+    global weightsG
+    weightsG = numpy.ones(nsources)
+    xini = xinit(ninit)
+    vor, istop = voronoi(xini, draw = False)
+    if istop != 0:
+        print('The Voronoi method encountered an error while constructing the manufactured solution')
+        sys.exit()
+    feval = evalfg(2*nsites, xini, vor)
+    for j in range(Num - 1):
+        xcurrent = xinit(ninit)
+        vor, istop = voronoi(xcurrent, draw = False)
+        if istop != 0:
+            print('The Voronoi method encountered an error while constructing the manufactured solution')
+            sys.exit()
+        fevaltrial = evalfg(2*nsites, xcurrent, vor)
+        if fevaltrial < feval:
+            xini = numpy.copy(xcurrent)
+            feval = fevaltrial
+elif typeinit == 3: 
+    ntrials = Num
+    xini = randomInit(ntrials, nsites)
+
+flagsol, xfinal, finit, normgpinit, ffinal, normgpfinal, iter, numevalf = projectedgradient(2*nsites, xini, epsg, maxit)
+
+## Compute noise level##
+noise_level = noise()
+
+# Final time
+finaltime = time.time()
+
+CPU_time = finaltime - starttime
+
+#Computing the error
+erroropt, errorinit = plotVor(sigma, nsites, mesh, V1, solx, xini, xfinal)
+
+# Save table of iterations
+
+if not os.path.exists("./results"):
+    # Create the directory if necessary
+    os.makedirs('./results')
+
+input_files = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
+os.rename('./saida.txt', './results/'+input_files+'.txt')
+
+
+def add(old, current):
+        total = len(old) + len(current)
+        new = numpy.zeros(total)
+        new[0:len(old)] = old
+        new[len(old):total] = current
+        return new
+
+if os.path.exists("./results/data.npz"):
+    loaded_data = numpy.load("./results/data.npz")
+
+    nsites_array = loaded_data["nsites_array"]
+    nsources_array = loaded_data["nsources_array"]
+    nmesh_array = loaded_data["nmesh_array"]
+    noise_coeff_array = loaded_data["noise_coeff_array"]
+    noise_level_array = loaded_data["noise_level_array"]
+    Aeps_array = loaded_data["Aeps_array"]
+    finit_array = loaded_data["finit_array"]
+    normgpinit_array = loaded_data["normgpinit_array"]
+    ffinal_array = loaded_data["ffinal_array"]
+    normgpfinal_array  = loaded_data["normgpfinal_array"]
+    erroropt_array  = loaded_data["erroropt_array"]
+    errorinit_array  = loaded_data["errorinit_array"]
+    flagsol_array = loaded_data["flagsol_array"]
+    iter_array = loaded_data["iter_array"]
+    numevalf_array = loaded_data["numevalf_array"]
+    CPU_time_array = loaded_data["CPU_time_array"]
+    sigma_array = loaded_data["sigma_array"]
+    solx_array = loaded_data["solx_array"]
+    xini_array = loaded_data["xini_array"]
+    xfinal_array = loaded_data["xfinal_array"]
+
+    sigma_array = add(sigma_array, sigma)
+    solx_array = add(solx_array, solx)
+    xini_array = add(xini_array, xini)
+    xfinal_array = add(xfinal_array, xfinal)
+
+    
+    nsites_list = nsites_array.tolist()
+    nsources_list = nsources_array.tolist()
+    nmesh_list = nmesh_array.tolist()
+    noise_coeff_list = noise_coeff_array.tolist()
+    noise_level_list = noise_level_array.tolist()
+    Aeps_list = Aeps_array.tolist()
+    finit_list = finit_array.tolist()
+    normgpinit_list = normgpinit_array.tolist()
+    ffinal_list = ffinal_array.tolist()
+    normgpfinal_list = normgpfinal_array.tolist()
+    erroropt_list = erroropt_array.tolist()
+    errorinit_list = errorinit_array.tolist()
+    flagsol_list = flagsol_array.tolist()
+    iter_list = iter_array.tolist()
+    numevalf_list = numevalf_array.tolist()
+    CPU_time_list = CPU_time_array.tolist()
+    
+
+    nsites_list.append(nsites)
+    nsources_list.append(nsources)
+    nmesh_list.append(nmesh)
+    noise_coeff_list.append(noise_coeff)
+    Aeps_list.append(Aeps)
+    finit_list.append(finit)
+    noise_level_list.append(noise_level)
+    normgpinit_list.append(normgpinit)
+    ffinal_list.append(ffinal)
+    normgpfinal_list.append(normgpfinal)
+    erroropt_list.append(erroropt)
+    errorinit_list.append(errorinit)
+    flagsol_list.append(flagsol)
+    iter_list.append(iter)
+    numevalf_list.append(numevalf)
+    CPU_time_list.append(CPU_time)
+
+else:
+    nsites_list = [nsites]
+    nsources_list = [nsources]
+    nmesh_list = [nmesh]
+    noise_coeff_list = [noise_coeff]
+    Aeps_list = [Aeps]
+    finit_list = [finit]
+    noise_level_list =[noise_level]
+    normgpinit_list = [normgpinit]
+    ffinal_list = [ffinal]
+    normgpfinal_list = [normgpfinal]
+    erroropt_list = [erroropt]
+    errorinit_list = [errorinit]
+    flagsol_list = [flagsol]
+    iter_list = [iter]
+    numevalf_list = [numevalf]
+    CPU_time_list = [CPU_time]
+    sigma_array = sigma
+    solx_array = solx
+    xini_array = xini
+    xfinal_array = xfinal
+
+nsites_array = numpy.array(nsites_list)
+nsources_array = numpy.array(nsources_list)
+nmesh_array = numpy.array(nmesh_list)
+noise_coeff_array = numpy.array(noise_coeff_list)
+Aeps_array = numpy.array(Aeps_list)
+finit_array = numpy.array(finit_list)
+noise_level_array = numpy.array(noise_level_list)
+normgpinit_array = numpy.array(normgpinit_list)
+ffinal_array = numpy.array(ffinal_list)
+normgpfinal_array = numpy.array(normgpfinal_list)
+erroropt_array = numpy.array(erroropt_list)
+errorinit_array = numpy.array(errorinit_list)
+flagsol_array = numpy.array(flagsol_list)
+iter_array = numpy.array(iter_list)
+numevalf_array = numpy.array(numevalf_list)
+CPU_time_array = numpy.array(CPU_time_list)
+
+
+numpy.savez("./results/data.npz", nsites_array=nsites_array, nsources_array=nsources_array, nmesh_array=nmesh_array, noise_coeff_array=noise_coeff_array, Aeps_array=Aeps_array, 
+finit_array=finit_array,
+noise_level_array=noise_level_array,
+normgpinit_array=normgpinit_array,
+ffinal_array=ffinal_array,
+normgpfinal_array=normgpfinal_array, erroropt_array=erroropt_array,
+errorinit_array=errorinit_array,
+flagsol_array=flagsol_array, iter_array=iter_array, numevalf_array=numevalf_array, CPU_time_array=CPU_time_array, sigma_array=sigma_array, solx_array=solx_array, xini_array=xini_array, xfinal_array=xfinal_array)
+
+
+
+weightsG = numpy.ones(nsources)
+vor, istop = voronoi(xini, draw = False)
+if istop != 0:
+    print('The Voronoi method encountered an error while constructing the manufactured solution')
+    sys.exit()
+finit, ginit = evalfg(2*nsites, xini, vor, greq = True)
+gp = xini - ginit
+project(2*nsites, gp)
+gp = gp - xini
+normgpinit = numpy.linalg.norm(gp)
+
+
+vor, istop = voronoi(xfinal, draw = False)
+if istop != 0:
+    print('The Voronoi method encountered an error while constructing the manufactured solution')
+    sys.exit()
+ffinal, gfinal = evalfg(2*nsites, xfinal, vor, greq = True)
+gp = xfinal - gfinal
+project(2*nsites, gp)
+gp = gp - xfinal
+normgpfinal = numpy.linalg.norm(gp)
+
+    
+if os.path.exists("./results/data1.npz"):
+
+    loaded_data = numpy.load("./results/data1.npz")
+
+    finit_array = loaded_data["finit_array"]
+    ffinal_array = loaded_data["ffinal_array"]
+    normgpinit_array = loaded_data["normgpinit_array"]
+    normgpfinal_array = loaded_data["normgpfinal_array"]
+
+    finit_list = finit_array.tolist()
+    ffinal_list = ffinal_array.tolist()
+    normgpinit_list = normgpinit_array.tolist()
+    normgpfinal_list = normgpfinal_array.tolist()
+
+    finit_list.append(finit)
+    ffinal_list.append(ffinal)
+    normgpinit_list.append(normgpinit)
+    normgpfinal_list.append(normgpfinal)
+
+else:
+    finit_list = [finit]
+    ffinal_list = [ffinal]
+    normgpinit_list = [normgpinit]
+    normgpfinal_list = [normgpfinal]
+
+
+finit_array = numpy.array(finit_list)
+ffinal_array = numpy.array(ffinal_list)
+normgpinit_array = numpy.array(normgpinit_list)
+normgpfinal_array = numpy.array(normgpfinal_list) 
+
+numpy.savez("./results/data1.npz", finit_array=finit_array, ffinal_array=ffinal_array, normgpinit_array=normgpinit_array, normgpfinal_array=normgpfinal_array)
+
+
+print('End of main loop !!')
