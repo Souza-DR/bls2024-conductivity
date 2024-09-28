@@ -1,0 +1,7 @@
+*.log
+*.out
+*.so
+*.mod
+*.o
+files/gfortcache/
+files/compile.sh
