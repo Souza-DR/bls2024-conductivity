@@ -9,3 +9,4 @@
 files/gfortcache/
 files/compile.sh
 results/
+./compile.sh
