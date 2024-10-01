@@ -79,33 +79,33 @@ Aeps_array = loaded_data['Aeps_array']
 ffinal_array1 = loaded_data1["ffinal_array"]
 
 
-ffinal1 = []
-ffinal2 = []
-ffinal3 = []
-vencedor = []
+# ffinal1 = []
+# ffinal2 = []
+# ffinal3 = []
+# vencedor = []
 
-for l in range(len(nsites_array)):
-    if nsources_array[l] == 1:
-        ffinal1.append(ffinal_array1[l])
-    # if nsources_array[l] == 2:
-    #     ffinal2.append(ffinal_array1[l])
-    if nsources_array[l] == 3:
-        ffinal3.append(ffinal_array1[l])
+# for l in range(len(nsites_array)):
+#     if nsources_array[l] == 1:
+#         ffinal1.append(ffinal_array1[l])
+#     # if nsources_array[l] == 2:
+#     #     ffinal2.append(ffinal_array1[l])
+#     if nsources_array[l] == 3:
+#         ffinal3.append(ffinal_array1[l])
 
-best_ffinal1 = np.min(np.array(ffinal1))
-# best_ffinal2 = np.min(np.array(ffinal2))
-best_ffinal3 = np.min(np.array(ffinal3))
+# best_ffinal1 = np.min(np.array(ffinal1))
+# # best_ffinal2 = np.min(np.array(ffinal2))
+# best_ffinal3 = np.min(np.array(ffinal3))
 
-# print(best_ffinal1)
+# # print(best_ffinal1)
 
 
-for l in range(len(nsites_array)):
-    if nsources_array[l] == 1 and ffinal_array1[l] <= best_ffinal1:
-        vencedor.append(l)
-    # if nsources_array[l] == 2 and ffinal_array1[l] <= best_ffinal2:
-        # vencedor.append(l)
-    if nsources_array[l] == 3 and ffinal_array1[l] <= best_ffinal3:
-        vencedor.append(l)
+# for l in range(len(nsites_array)):
+#     if nsources_array[l] == 1 and ffinal_array1[l] <= best_ffinal1:
+#         vencedor.append(l)
+#     # if nsources_array[l] == 2 and ffinal_array1[l] <= best_ffinal2:
+#         # vencedor.append(l)
+#     if nsources_array[l] == 3 and ffinal_array1[l] <= best_ffinal3:
+#         vencedor.append(l)
 
 
 position = np.zeros(len(nsites_array)+1)
@@ -123,9 +123,9 @@ for i in range(97, 123):
     alphabet.append(chr(i))
 
 
-l = 0
-name = 'blsfig6'
-for k in vencedor:
+# l = 0
+# name = 'blsfig6'
+for k in range(len(nsites_array)):
  
     nsites, nsources, nmesh, noise_coeff, Aeps, sigma, solx, xini, xfinal = nsites_array[k], nsources_array[k], nmesh_array[k], noise_coeff_array[k], Aeps_array[k], sigma_array[sig_pst[k]:sig_pst[k+1]], solx_array[2*position[k]:2*position[k+1]], xini_array[2*position[k]:2*position[k+1]], xfinal_array[2*position[k]:2*position[k+1]]
 
@@ -135,9 +135,9 @@ for k in vencedor:
         # Create the directory if necessary
         os.makedirs('./results/figures')
 
-    # if k % 4 == 0:
-    #     l = 0
-    #     name = 'blsfig'+str((k//4))
+    if k % 4 == 0:
+        l = 0
+        name = 'blsfig'+str((k//4))
 
         
     voronoi(solx, sigma, True)

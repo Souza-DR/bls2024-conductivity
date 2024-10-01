@@ -16,11 +16,11 @@ N = 100
 #Fixed boundary layer width
 Aeps = 0.05
 
-nsites_list = [11]
+nsites_list = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-nsources_list = [1]
-nmesh_list = [128]
-noise_coeff_list = [0.005]
+nsources_list = [1, 3]
+nmesh_list = [16, 32]
+noise_coeff_list = [0.005, 0.01, 0.02]
 
 #Accessing each tests folder to removing potential old results
 for nsites in nsites_list:

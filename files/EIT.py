@@ -1001,7 +1001,7 @@ Htrial = TrialFunction(V2)
 vhtest = TestFunction(V2)
 
 #Initial parameter for projected gradient
-maxit = 500
+maxit = 4
 epsg = 1E-6
 random.seed(123456)
 xini = numpy.zeros(2*nsites)
