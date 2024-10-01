@@ -16,6 +16,11 @@ N = 100
 #Fixed boundary layer width
 Aeps = 0.05
 
+# Spectral projected gradient method parameters
+maxit = 500 # Maximum number of iterations
+eps = 1E-6 # Epsilon that determines the lack of progress in the movement of sites, determines whether the step is too small in line search and whether the search direction is small.
+maxtime = 10800 # Maximum execution time for each instance
+
 nsites_list = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 nsources_list = [1, 3]
@@ -89,6 +94,12 @@ N="""+str(N)+r"""
 
 Aeps="""+str(Aeps)+r"""
 
+maxit="""+str(maxit)+r"""
+
+eps="""+str(eps)+r"""
+
+maxtime="""+str(maxtime)+r"""
+
 nsites_list=("""+str(nsites)+r""")
 ninit_list=("""+str(ninit)+r""")
 nsources_list=("""+str(nsources)+r""")
@@ -101,7 +112,7 @@ for ninit in "${ninit_list[@]}"; do
 for nsources in "${nsources_list[@]}"; do
 for nmesh in "${nmesh_list[@]}"; do
     echo "Running $python_script with argument: $arg1"
-    python3 EIT.py $nsites $ninit $nsources $nmesh $noise_coeff $typeproblem $typeinit $N $Aeps
+    python3 EIT.py $nsites $ninit $nsources $nmesh $noise_coeff $typeproblem $typeinit $N $Aeps $maxit $eps $maxtime
 done
 done
 done
