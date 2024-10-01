@@ -389,7 +389,7 @@ def project(n, x):
     for i in range(int(n/2)):
         projectintoA(x[2*i:2*i+2])
 
-def projectedgradient(n, x, epsg, maxit):
+def projectedgradient(n, x, eps, maxit, maxtime):
     starttime = time.time()
     project(n, x)
 
@@ -433,7 +433,7 @@ def projectedgradient(n, x, epsg, maxit):
     smallstep = False
     smallxdiff = False
     TIME = False
-    while normgp > epsg and iter < maxit and not smallstep and not smallxdiff and not TIME:
+    while normgp > eps and iter < maxit and not smallstep and not smallxdiff and not TIME:
         iter = iter + 1
 
         alpha = 1.0
@@ -466,7 +466,7 @@ def projectedgradient(n, x, epsg, maxit):
 
             print('-->', alpha, ftrial, numevalf)
         
-            if alpha < 1E-6:
+            if alpha < eps:
                 smallstep = True
 
         xdiff = xtrial - x
@@ -502,20 +502,20 @@ def projectedgradient(n, x, epsg, maxit):
             txt.write(data)
         print(myTable)
 
-        if numpy.linalg.norm(xdiff) < 1.0E-6:
+        if numpy.linalg.norm(xdiff) < eps:
             smallxdiff = True
 
         finaltime = time.time()
         CPU_time = finaltime - starttime
 
-        if CPU_time >= 10800*nsources:
+        if CPU_time >= maxtime*nsources:
             TIME = True
             
 
     if iter > maxit-1:
         print('Maximum number of iterations reached')
         flagsol = 0
-    elif normgp <= epsg:
+    elif normgp <= eps:
         print('Small search direction')
         flagsol = 1
     elif smallstep:
@@ -847,6 +847,9 @@ typeProblem = int(sys.argv[6])
 typeinit = int(sys.argv[7])
 Num = int(sys.argv[8])
 Aeps = float(sys.argv[9])
+maxit = int(sys.argv[10])
+eps = float(sys.argv[11])
+maxtime = int(sys.argv[12])
 
 equidist = False
 binary = False
@@ -1001,8 +1004,6 @@ Htrial = TrialFunction(V2)
 vhtest = TestFunction(V2)
 
 #Initial parameter for projected gradient
-maxit = 4
-epsg = 1E-6
 random.seed(123456)
 xini = numpy.zeros(2*nsites)
 
@@ -1031,7 +1032,7 @@ elif typeinit == 3:
     ntrials = Num
     xini = randomInit(ntrials, nsites)
 
-flagsol, xfinal, finit, normgpinit, ffinal, normgpfinal, iter, numevalf = projectedgradient(2*nsites, xini, epsg, maxit)
+flagsol, xfinal, finit, normgpinit, ffinal, normgpfinal, iter, numevalf = projectedgradient(2*nsites, xini, eps, maxit, maxtime)
 
 ## Compute noise level##
 noise_level = noise()
