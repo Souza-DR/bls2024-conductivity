@@ -17,15 +17,15 @@ N = 100
 Aeps = 0.05
 
 # Spectral projected gradient method parameters
-maxit = 500 # Maximum number of iterations
+maxit = 4 # Maximum number of iterations
 eps = 1E-6 # Epsilon that determines the lack of progress in the movement of sites, determines whether the step is too small in line search and whether the search direction is small.
 maxtime = 10800 # Maximum execution time for each instance
 
-nsites_list = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+nsites_list = [5]
 ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 nsources_list = [1, 3]
 nmesh_list = [16, 32]
-noise_coeff_list = [0.005, 0.01, 0.02]
+noise_coeff_list = [0.005, 0.01]
 
 #Accessing each tests folder to removing potential old results
 for nsites in nsites_list:

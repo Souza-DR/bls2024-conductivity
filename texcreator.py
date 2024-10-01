@@ -91,14 +91,15 @@ with open("./results/Results.tex", "w") as f:
 \newcommand{\ck}{{\kappa_0}}
 \newcommand{\im}{\alpha}
 \usepackage{multirow}
+\usepackage{placeins}
 
 \graphicspath{{./figures/}}
 
 \begin{document}      
     
-\begin{table}[ht!]
+\begin{table}
 \centering
-\resizebox{0.7\textheight}{!}{
+\resizebox{0.6\textheight}{!}{
 \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c||c|c|c}
 \hline
 $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G(\hat\bsi)$ \\ \hline \hline
@@ -119,12 +120,13 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
         if (i+1)%40 == 0:
             f.write(r"""
 \end{tabular}}
-\end{table}""")
+\end{table}
+\FloatBarrier""")
             
             f.write(r"""
-\begin{table}[ht!]
+\begin{table}
 \centering
-\resizebox{0.7\textheight}{!}{
+\resizebox{0.5\textheight}{!}{
 \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c||c|c|c}
 \hline
 $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G(\hat\bsi)$ \\ \hline
@@ -138,8 +140,9 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
 
     f.write(r"""
 
-\begin{figure}[ht]
+\begin{figure}
 \begin{center}
+\resizebox{0.6\textheight}{!}{
 \begin{tabular}{|c|c|c|c|}
 \hline
 & Ground truth & Initialization & Reconstruction\\
@@ -170,12 +173,14 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
         
         if (i+1)%4 == 0:
             f.write(r"""
-        \end{tabular}
+        \end{tabular}}
         \end{center}
         \end{figure}
+        \FloatBarrier
         """)
-            f.write(r"""\begin{figure}[ht]
+            f.write(r"""\begin{figure}
         \begin{center}
+        \resizebox{0.6\textheight}{!}{
         \begin{tabular}{|c|c|c|c|}
         \hline
         & Ground truth & Initialization & Reconstruction\\
@@ -183,7 +188,7 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
         \hline""")
     
     f.write(r"""
-        \end{tabular}
+        \end{tabular}}
         \end{center}
         \end{figure}
         """)
