@@ -35,27 +35,27 @@ nmesh_list = np.unique(nmesh_array)
 noise_coeff_list = np.unique(noise_coeff_array).astype(int)
 
 ind = 0
-vencedor = np.zeros(len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list), dtype=int)
+winner = np.zeros(len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list), dtype=int)
 pst = 0
 for nsites in nsites_list:
     for nmesh in nmesh_list:
         for noise_coeff in noise_coeff_list:
             for nsources in nsources_list:          
-                best_ffinal = ffinal_array1[ind]   
+                best_ffinal = ffinal_array1[ind]
                 for ninit in ninit_list:
                     if ffinal_array1[ind] <= best_ffinal:
                         best_ffinal = ffinal_array1[ind]
-                        vencedor[pst] = ind
+                        winner[pst] = ind
                     if nsites_array[ind] == nsites:
                         ind+=1
-    pst+=1
+                pst+=1
 
-
+# print(winner)
 # sites = np.unique(nsites_array)
 # if len(sites) == 1:
 #     print("Usar outros critérios")
 # else:
-#     vencedor = []
+#     winner = []
 #     for s in sites:    
 #         ffinal = []
 #         for l in range(len(nsites_array)):
@@ -66,8 +66,8 @@ for nsites in nsites_list:
 
 #         for l in range(len(nsites_array)):
 #             if nsites_array[l] == s and ffinal_array1[l] == best_ffinal:
-#                 vencedor.append(l)
-# print(vencedor)
+#                 winner.append(l)
+# print(winner)
 # sys.exit()
 
 alphabet = []
@@ -102,11 +102,11 @@ with open("./results/Results.tex", "w") as f:
 \resizebox{0.6\textheight}{!}{
 \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c||c|c|c}
 \hline
-$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G(\hat\bsi)$ \\ \hline \hline
+$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G_{\zeta_1=1}(\hat \bsi)$ \\ \hline \hline
 """)
     for i in range(len(nsites_array)):
                 
-        if i in vencedor:
+        if i in winner:
             f.write(str(nsites_array[i]) + r""" & """+str(nsources_array[i]) + r""" & """+str('%4.2f' % noise_level_array[i])+r"""& """+str('%5.2f' % errorinit_array[i])+r""" & """+str('%5.2f' % erroropt_array[i])+r""" & """+str('%4.2f' % finit_array[i])+r""" & """+str('%7.5f' % ffinal_array[i])+r""" & """+str('%7.5f' % normgpinit_array[i])+r""" & """+str('%7.5f' % normgpfinal_array[i])+r""" & """+str(iter_array[i])+r""" & """+str(numevalf_array[i])+r""" & """+str('%7.2f' % CPU_time_array[i])+r""" & """+str(flagsol_array[i]) + r""" & \textbf{"""+str('%10.3e' % ffinal_array1[i])+r"""}\\ \hline
                 """)
         else:
@@ -155,7 +155,7 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
             l = 0
             name = 'blsfig'+str((i//4))
         
-        if i in vencedor:
+        if i in winner:
             f.write(r"""\multirow{3}{*}{\rotatebox{90}{\textcolor{"""+color+r"""}{$\ck=""" + str(nsites_array[i]) + r"""\;$}}} & & & \textcolor{"""+color+r"""}{Noise = $"""+str('%4.2f' % noise_level_array[i])+r"""\%$}  \\
         \cline{4-4}
         & & \textcolor{"""+color+r"""}{$E(\bsi^0) = """+str('%5.2f' % errorinit_array[i])+r"""\% $} & \textcolor{"""+color+r"""}{$E(\hat\bsi) = """+str('%5.2f' % erroropt_array[i])+r"""\% $} \\""")
