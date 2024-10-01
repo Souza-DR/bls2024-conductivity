@@ -3,6 +3,9 @@
 *.so
 *.mod
 *.o
+*.mp
+*.mpx
+*.tex
 files/gfortcache/
 files/compile.sh
 results/
