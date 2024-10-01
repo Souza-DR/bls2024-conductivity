@@ -122,18 +122,18 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
 \end{tabular}}
 \end{table}
 \FloatBarrier""")
-            
-            f.write(r"""
+            if i < (len(nsites_array) - 1):
+                f.write(r"""
 \begin{table}
 \centering
 \resizebox{0.5\textheight}{!}{
 \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c||c|c|c}
 \hline
-$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G(\hat\bsi)$ \\ \hline
+$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G_{\zeta_1=1}(\hat \bsi)$ \\ \hline
                     """)
                 
-    
-    f.write(r"""
+    if i < (len(nsites_array) - 1):
+        f.write(r"""
 \end{tabular}}
 \end{table}""")
     
@@ -178,7 +178,8 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
         \end{figure}
         \FloatBarrier
         """)
-            f.write(r"""\begin{figure}
+            if i < (len(nsites_array) - 1):
+                f.write(r"""\begin{figure}
         \begin{center}
         \resizebox{0.6\textheight}{!}{
         \begin{tabular}{|c|c|c|c|}
@@ -186,8 +187,8 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
         & Ground truth & Initialization & Reconstruction\\
         \hline
         \hline""")
-    
-    f.write(r"""
+    if i < (len(nsites_array) - 1):
+        f.write(r"""
         \end{tabular}}
         \end{center}
         \end{figure}
