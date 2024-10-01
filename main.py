@@ -151,11 +151,11 @@ if os.path.exists("./results/data1.npz"):
 
 #Accessing each test's folder to retrieve their respective data
 for nsites in nsites_list:
-    for noise_coeff in noise_coeff_list:
-        for nsources in nsources_list:
-            for ninit in ninit_list:
-                for nmesh in nmesh_list:
-                    
+    for nmesh in nmesh_list:
+        for noise_coeff in noise_coeff_list:
+            for nsources in nsources_list:
+                for ninit in ninit_list:
+                                    
                     input_files = "./"+str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
 
                     # Validating the existence of instance data to confirm the success or failure of the instance creation.
@@ -239,10 +239,10 @@ for nsites in nsites_list:
 
 #Accessing each test's folder to retrieve their respective data
 for nsites in nsites_list:
-    for noise_coeff in noise_coeff_list:
-        for nsources in nsources_list:
-            for ninit in ninit_list:
-                for nmesh in nmesh_list:
+    for nmesh in nmesh_list:
+        for noise_coeff in noise_coeff_list:
+            for nsources in nsources_list:
+                for ninit in ninit_list:
                     
                     input_files = "./"+str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
 
