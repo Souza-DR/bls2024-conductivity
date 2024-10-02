@@ -9,4 +9,5 @@
 files/gfortcache/
 files/compile.sh
 results/
-./compile.sh
+compile.sh
+instances/
