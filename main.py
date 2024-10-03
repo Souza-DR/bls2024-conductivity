@@ -53,12 +53,7 @@ for nsites in nsites_list:
 
                     with open(input_files+"/instance.sh", "w") as f:
                         f.write(r"""#!/bin/bash
-FILE=./"""+input_files+r""".npz
 DIR=./gfortcache
-
-if [ -e  $FILE ] ; then
-  rm ./results/data.npz
-fi
 
 if [ -e  $DIR ] ; then
   rm -r ./gfortcache
