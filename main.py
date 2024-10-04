@@ -135,8 +135,8 @@ for nsites in nsites_list:
                     if os.path.exists("./instances/"+filename):  
                         sh.move("./instances/"+filename+'/'+filename+'.npz', './results/data/'+filename+'.npz')
                    
-                        #Delete the directories and all your files.
-                        sh.rmtree("./instances/"+filename)
+#Delete the directorie and all your files.
+sh.rmtree("./instances/")
             
 
 
