@@ -3,9 +3,9 @@ import sys
 from pdb import set_trace
 
 nsites_list = [5]
-ninit_list = [1, 2, 3, 4, 5, 6, 7, 8]
-nsources_list = [1]
-nmesh_list = [16]
+ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+nsources_list = [1, 3]
+nmesh_list = [16, 32]
 noise_coeff_list = [0.005, 0.01]
 
 winner = []
@@ -96,8 +96,7 @@ str(nsites) + r""" & """+str(nsources) + r""" & """+str('%4.2f' % noise_level)+r
 """)
                         
                         if ninit == ninit_list[-1]:
-                            f.write(r"""
-\hline
+                            f.write(r"""\hline
 """)
                         
                         if (counter == (len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list)*len(ninit_list)) - 1) or ((counter+1)%40) == 0:
@@ -191,7 +190,7 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
                         """)
                             if counter < (len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list)*len(ninit_list) - 1):
                                 f.write(r"""
-                \begin{figure}
+\begin{figure}
 \begin{center}
 \resizebox{0.6\textheight}{!}{
 \begin{tabular}{|c|c|c|c|}
