@@ -146,13 +146,13 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
                         nsources = (loaded_data["nsources"]).astype(int)
                         nmesh = loaded_data["nmesh"]
                         noise_coeff = loaded_data["noise_coeff"]
-                        noise_level = [100]*loaded_data["noise_level"]
+                        noise_level = 100*loaded_data["noise_level"]
                         finit = loaded_data["finit"]
                         ffinal = loaded_data["ffinal"]
                         normgpinit = loaded_data["normgpinit"]
                         normgpfinal  = loaded_data["normgpfinal"]
-                        erroropt  = [100]*loaded_data["erroropt"]
-                        errorinit  = [100]*loaded_data["errorinit"]
+                        erroropt  = 100*loaded_data["erroropt"]
+                        errorinit  = 100*loaded_data["errorinit"]
                         flagsol = (loaded_data["flagsol"]).astype(int)
                         iter = (loaded_data["iter"]).astype(int)
                         numevalf = (loaded_data["numevalf"]).astype(int)
