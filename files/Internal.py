@@ -890,7 +890,7 @@ normgpfinal1 = numpy.linalg.norm(gp)
 
 namefile = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
 
-numpy.savez("./"+namefile+".npz", nsites=nsites, nsources=nsources, nmesh=nmesh, noise_coeff=noise_coeff, Aeps=Aeps, 
+numpy.savez("./"+namefile+".npz", nsites=nsites, nsources=nsources, nmesh=nmesh, noise_coeff=noise_coeff, 
 finit=finit, noise_level=noise_level, normgpinit=normgpinit, ffinal=ffinal, normgpfinal=normgpfinal, erroropt=erroropt, errorinit=errorinit, flagsol=flagsol, iter=iter, numevalf=numevalf, CPU_time=CPU_time, sigma=sigma, solx=solx, xini=xini, xfinal=xfinal, finit1=finit1, ffinal1=ffinal1, normgpinit1=normgpinit1, normgpfinal1=normgpfinal1)
 
     
