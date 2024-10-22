@@ -21,9 +21,8 @@ typeproblem = 1
 typeinit = 1
 N = 100
 
-#Choosing the boundary width of domain A for the case with boundary measurements.
-# Warning: do not remove this parameter for the case with internal measurements, as this may cause errors.
-Aeps = 0.05
+# Choose the width of the domain boundary A: Aeps = 0.0 for the case of internal measurements, and Aeps > 0.0 for the case of boundary measurements.
+Aeps = 0.0
 
 # Spectral projected gradient method parameters
 maxit = 4 # Maximum number of iterations
