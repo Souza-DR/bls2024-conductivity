@@ -2,61 +2,26 @@ import numpy as np
 import sys
 from pdb import set_trace
 
+nsites_list = [5]
+ninit_list = [1, 2, 3, 4, 5, 6, 7, 8]
+nsources_list = [1]
+nmesh_list = [16]
+noise_coeff_list = [0.005, 0.01]
+
+winner = []
+for nsites in nsites_list:
+    for nsources in nsources_list:
+        for noise_coeff in noise_coeff_list:
+            for nmesh in nmesh_list:
+                ffinal1_list = []
+                for ninit in ninit_list:
+                    input_files = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
+                    loaded_data = np.load("./results/data/"+input_files+".npz")
+                    ffinal1_list.append(loaded_data["ffinal1"])
+                winner.append(np.argmin(np.array(ffinal1_list))+1)
+
 ndec = 2
-
-loaded_data = np.load("./results/data.npz")
-loaded_data1 = np.load("./results/data1.npz")
-finit_array1 = loaded_data1["finit_array"]
-ffinal_array1 = loaded_data1["ffinal_array"]
-
-nsites_array = (loaded_data["nsites_array"]).astype(int)
-nsources_array = (loaded_data["nsources_array"]).astype(int)
-nmesh_array = loaded_data["nmesh_array"]
-noise_coeff_array = loaded_data["noise_coeff_array"]
-
-noise_level_array = [100]*loaded_data["noise_level_array"]
-finit_array = loaded_data["finit_array"]
-ffinal_array = loaded_data["ffinal_array"]
-normgpinit_array = loaded_data["normgpinit_array"]
-normgpfinal_array  = loaded_data["normgpfinal_array"]
-
-erroropt_array  = [100]*loaded_data["erroropt_array"]
-errorinit_array  = [100]*loaded_data["errorinit_array"]
-flagsol_array = (loaded_data["flagsol_array"]).astype(int)
-iter_array = (loaded_data["iter_array"]).astype(int)
-numevalf_array = (loaded_data["numevalf_array"]).astype(int)
-CPU_time_array = loaded_data["CPU_time_array"]
-
-ffinal1 = []
-ffinal2 = []
-ffinal3 = []
-vencedor = []
-
-for l in range(len(nsites_array)):
-    if nsources_array[l] == 1:
-        ffinal1.append(ffinal_array1[l])
-    # if nsources_array[l] == 2:
-    #     ffinal2.append(ffinal_array1[l])
-    if nsources_array[l] == 3:
-        ffinal3.append(ffinal_array1[l])
-
-best_ffinal1 = np.min(np.array(ffinal1))
-# best_ffinal2 = np.min(np.array(ffinal2))
-best_ffinal3 = np.min(np.array(ffinal3))
-
-# print(best_ffinal1)
-
-
-for l in range(len(nsites_array)):
-    if nsources_array[l] == 1 and ffinal_array1[l] <= best_ffinal1:
-        vencedor.append(l)
-    # if nsources_array[l] == 2 and ffinal_array1[l] <= best_ffinal2:
-    #     vencedor.append(l)
-    if nsources_array[l] == 3 and ffinal_array1[l] <= best_ffinal3:
-        vencedor.append(l)
-
-# print(vencedor)
-# sys.exit()
+color = "blue"
 
 alphabet = []
 for i in range(97, 123):
@@ -79,221 +44,163 @@ with open("./results/Results.tex", "w") as f:
 \newcommand{\ck}{{\kappa_0}}
 \newcommand{\im}{\alpha}
 \usepackage{multirow}
+\usepackage{placeins}
 
 \graphicspath{{./figures/}}
 
 \begin{document}      
     
-
-\begin{table}[ht!]
+\begin{table}
 \centering
-\resizebox{0.7\textheight}{!}{
+\resizebox{0.6\textheight}{!}{
 \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c||c|c|c}
 \hline
-$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G(\hat\bsi)$ \\ \hline \hline
+$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G_{\zeta_1=1}(\hat \bsi)$ \\ \hline \hline
 """)
-    for i in range(len(nsites_array)):
-#         if i == 1:
-#             f.write(
-# str(nsites_array[i]) + r""" & """+str('%4.2f' % noise_level_array[i])+r"""& """+str('%5.2f' % errorinit_array[i])+r""" & """+str('%5.2f' % erroropt_array[i])+r""" & """+str('%4.2f' % finit_array[i])+r""" & """+str('%7.5f' % ffinal_array[i])+r""" & """+str('%7.5f' % normgpinit_array[i])+r""" & """+str('%7.5f' % normgpfinal_array[i])+r""" & """+str(iter_array[i])+r""" & """+str(numevalf_array[i])+r""" & """+str('%7.2f' % CPU_time_array[i])+r""" & """+str(flagsol_array[i]) + r""" & """+str('%10.3e' % ffinal_array1[i])+r"""\\ \hline
-#                 """)
+    pst = 0
+    counter = 0
+    for nsites in nsites_list:
+        for nsources in nsources_list:
+            for noise_coeff in noise_coeff_list:
+                for nmesh in nmesh_list:
+                    for ninit in ninit_list:
+                        
+                        input_files = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
 
-#         f.write(r"""
-# \multirow{10}{*}{"""+str(nsites_array[i])+r"""} & \multirow{10}{*}{"""+str('%4.2f' % noise_level_array[i])+r"""}"""+str('%5.2f' % errorinit_array[i])+r""" & """+str('%5.2f' % erroropt_array[i])+r""" & """+str('%4.2f' % finit_array[i])+r""" & """+str('%7.5f' % ffinal_array[i])+r""" & """+str('%7.5f' % normgpinit_array[i])+r""" & """+str('%7.5f' % normgpfinal_array[i])+r""" & """+str(iter_array[i])+r""" & """+str(numevalf_array[i])+r""" & """+str('%7.2f' % CPU_time_array[i])+r""" & """+str(flagsol_array[i]) + r""" & """+str('%10.3e' % ffinal_array1[i])+r"""\\ \hline
-#                 """)
-        
-        if i == vencedor[0] or i == vencedor[1]:
-        # if i == vencedor[0]:
-            f.write(str(nsites_array[i]) + r""" & """+str(nsources_array[i]) + r""" & """+str('%4.2f' % noise_level_array[i])+r"""& """+str('%5.2f' % errorinit_array[i])+r""" & """+str('%5.2f' % erroropt_array[i])+r""" & """+str('%4.2f' % finit_array[i])+r""" & """+str('%7.5f' % ffinal_array[i])+r""" & """+str('%7.5f' % normgpinit_array[i])+r""" & """+str('%7.5f' % normgpfinal_array[i])+r""" & """+str(iter_array[i])+r""" & """+str(numevalf_array[i])+r""" & """+str('%7.2f' % CPU_time_array[i])+r""" & """+str(flagsol_array[i]) + r""" & \textbf{"""+str('%10.3e' % ffinal_array1[i])+r"""}\\ \hline
-                """)
-        else:
-            f.write(str(nsites_array[i]) + r""" & """+str(nsources_array[i]) + r""" & """+str('%4.2f' % noise_level_array[i])+r"""& """+str('%5.2f' % errorinit_array[i])+r""" & """+str('%5.2f' % erroropt_array[i])+r""" & """+str('%4.2f' % finit_array[i])+r""" & """+str('%7.5f' % ffinal_array[i])+r""" & """+str('%7.5f' % normgpinit_array[i])+r""" & """+str('%7.5f' % normgpfinal_array[i])+r""" & """+str(iter_array[i])+r""" & """+str(numevalf_array[i])+r""" & """+str('%7.2f' % CPU_time_array[i])+r""" & """+str(flagsol_array[i]) + r""" & """+str('%10.3e' % ffinal_array1[i])+r"""\\ \hline
-                """)
-        
-        if (i+1)%10 == 0:
-            f.write(r"""\hline
-  """)
-        
-        if (i+1)%40 == 0:
-            f.write(r"""
+                        loaded_data = np.load("./results/data/"+input_files+".npz")
+
+                        ffinal1 = loaded_data["ffinal1"]
+                        nsites = (loaded_data["nsites"]).astype(int)
+                        nsources = (loaded_data["nsources"]).astype(int)
+                        nmesh = loaded_data["nmesh"]
+                        noise_coeff = loaded_data["noise_coeff"]
+                        noise_level = [100]*loaded_data["noise_level"]
+                        finit = loaded_data["finit"]
+                        ffinal = loaded_data["ffinal"]
+                        normgpinit = loaded_data["normgpinit"]
+                        normgpfinal  = loaded_data["normgpfinal"]
+                        erroropt  = [100]*loaded_data["erroropt"]
+                        errorinit  = [100]*loaded_data["errorinit"]
+                        flagsol = (loaded_data["flagsol"]).astype(int)
+                        iter = (loaded_data["iter"]).astype(int)
+                        numevalf = (loaded_data["numevalf"]).astype(int)
+                        CPU_time = loaded_data["CPU_time"]
+
+                        if ninit == winner[pst]:
+                            f.write(
+str(nsites) + r""" & """+str(nsources) + r""" & """+str('%4.2f' % noise_level)+r"""& """+str('%5.2f' % errorinit)+r""" & """+str('%5.2f' % erroropt)+r""" & """+str('%4.2f' % finit)+r""" & """+str('%7.5f' % ffinal)+r""" & """+str('%7.5f' % normgpinit)+r""" & """+str('%7.5f' % normgpfinal)+r""" & """+str(iter)+r""" & """+str(numevalf)+r""" & """+str('%7.2f' % CPU_time)+r""" & """+str(flagsol) + r""" & \textbf{"""+str('%10.3e' % ffinal1)+r"""}\\ \hline
+""")
+                        else:
+                            f.write(
+str(nsites) + r""" & """+str(nsources) + r""" & """+str('%4.2f' % noise_level)+r"""& """+str('%5.2f' % errorinit)+r""" & """+str('%5.2f' % erroropt)+r""" & """+str('%4.2f' % finit)+r""" & """+str('%7.5f' % ffinal)+r""" & """+str('%7.5f' % normgpinit)+r""" & """+str('%7.5f' % normgpfinal)+r""" & """+str(iter)+r""" & """+str(numevalf)+r""" & """+str('%7.2f' % CPU_time)+r""" & """+str(flagsol) + r""" & """+str('%10.3e' % ffinal1)+r"""\\ \hline
+""")
+                        
+                        if ninit == ninit_list[-1]:
+                            f.write(r"""
+\hline
+""")
+                        
+                        if (counter == (len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list)*len(ninit_list)) - 1) or ((counter+1)%40) == 0:
+                            f.write(r"""
 \end{tabular}}
-\end{table}""")
-            
-            f.write(r"""
-\begin{table}[ht!]
+\end{table}
+\FloatBarrier 
+""")
+                            if counter < (len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list)*len(ninit_list) - 1):
+                                f.write(r"""
+\begin{table}
 \centering
-\resizebox{0.7\textheight}{!}{
+\resizebox{0.6\textheight}{!}{
 \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c||c|c|c}
 \hline
-$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G(\hat\bsi)$ \\ \hline
-                    """)
-                
+$\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\bsi)$ & $\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time & Flag & $G_{\zeta_1=1}(\hat \bsi)$ \\ \hline
+""")
+                        counter += 1
+                    pst += 1                                   
     
     f.write(r"""
+
+\begin{figure}
+\begin{center}
+\resizebox{0.6\textheight}{!}{
+\begin{tabular}{|c|c|c|c|}
+\hline
+& Ground truth & Initialization & Reconstruction\\
+\hline
+\hline""")
+
+    pst = 0
+    counter = 0
+    for nsites in nsites_list:
+        for nsources in nsources_list:
+            for noise_coeff in noise_coeff_list:
+                for nmesh in nmesh_list:
+                    for ninit in ninit_list:
+                        
+                        input_files = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
+
+                        loaded_data = np.load("./results/data/"+input_files+".npz")
+
+                        ffinal1 = loaded_data["ffinal1"]
+                        nsites = (loaded_data["nsites"]).astype(int)
+                        nsources = (loaded_data["nsources"]).astype(int)
+                        nmesh = loaded_data["nmesh"]
+                        noise_coeff = loaded_data["noise_coeff"]
+                        noise_level = [100]*loaded_data["noise_level"]
+                        finit = loaded_data["finit"]
+                        ffinal = loaded_data["ffinal"]
+                        normgpinit = loaded_data["normgpinit"]
+                        normgpfinal  = loaded_data["normgpfinal"]
+                        erroropt  = [100]*loaded_data["erroropt"]
+                        errorinit  = [100]*loaded_data["errorinit"]
+                        flagsol = (loaded_data["flagsol"]).astype(int)
+                        iter = (loaded_data["iter"]).astype(int)
+                        numevalf = (loaded_data["numevalf"]).astype(int)
+                        CPU_time = loaded_data["CPU_time"]
+
+                        if counter % 4 == 0:
+                            l = 0
+                            name = 'blsfig'+str((counter//4))
+                        
+                        if ninit == winner[pst]:
+
+                            f.write(r"""
+\multirow{3}{*}{\rotatebox{90}{\textcolor{"""+color+r"""}{$\ck=""" + str(nsites) + r"""\;$}}} & & & \textcolor{"""+color+r"""}{Noise = $"""+str('%4.2f' % noise_level)+r"""\%$}  \\
+\cline{4-4} & & \textcolor{"""+color+r"""}{$E(\bsi^0) = """+str('%5.2f' % errorinit)+r"""\% $} & \textcolor{"""+color+r"""}{$E(\hat\bsi) = """+str('%5.2f' % erroropt)+r"""\% $} \\""")
+                            
+                        else:
+                            f.write(r"""
+\multirow{3}{*}{\rotatebox{90}{$\ck=""" + str(nsites) + r"""\;$}} & & & Noise = $"""+str('%4.2f' % noise_level)+r"""\%$  \\
+\cline{4-4}
+& & $E(\bsi^0) = """+str('%5.2f' % errorinit)+r"""\% $ & $E(\hat\bsi) = """+str('%5.2f' % erroropt)+r"""\% $ \\""")
+
+                        
+                        for j in range(3):
+                            f.write(r"""
+& \includegraphics[scale=0.8]{./figures/"""+name+str(alphabet[l])+r""".eps}""")
+                            l += 1
+                        f.write(r"""
+\\ \hline""")
+                        
+                        if (counter == (len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list)*len(ninit_list) - 1)) or ((counter+1)%4 == 0):
+                            f.write(r"""
 \end{tabular}}
-\end{table}""")
-    
+\end{center}
+\end{figure}
+\FloatBarrier
+                        """)
+                            if counter < (len(nsites_list)*len(nmesh_list)*len(noise_coeff_list)*len(nsources_list)*len(ninit_list) - 1):
+                                f.write(r"""
+                \begin{figure}
+\begin{center}
+\resizebox{0.6\textheight}{!}{
+\begin{tabular}{|c|c|c|c|}
+\hline
+& Ground truth & Initialization & Reconstruction\\
+\hline
+\hline""")
+                        counter += 1
+                    pst += 1            
 
-    f.write(r"""\begin{figure}[ht]
-    \begin{center}
-    \begin{tabular}{|c|c|c|c|}
-    \hline
-    & Ground truth & Initialization & Reconstruction\\
-    \hline
-    \hline""")
-
-    l = 0
-    name = 'blsfig6'
-    for i in vencedor:
-
-        # if i % 4 == 0:
-        #     l = 0
-        #     name = 'blsfig'+str((i//4))
-
-        f.write(r"""\multirow{3}{*}{\rotatebox{90}{$\ck=""" + str(nsites_array[i]) + r"""\;$}} & & & Noise = $"""+str('%4.2f' % noise_level_array[i])+r"""\%$  \\
-        \cline{4-4}
-        & & $E(\bsi^0) = """+str('%5.2f' % errorinit_array[i])+r"""\% $ & $E(\hat\bsi) = """+str('%5.2f' % erroropt_array[i])+r"""\% $ \\""")
-        for j in range(3):
-            f.write(r"""
-            & \includegraphics[scale=0.8]{./figures/"""+name+str(alphabet[l])+r""".eps}""")
-            l += 1
-        f.write(r"""\\ \hline""")
-        
-        # if (i+1)%4 == 0:
-        #     f.write(r"""
-        # \end{tabular}
-        # \end{center}
-        # \end{figure}
-        # """)
-        #     f.write(r"""\begin{figure}[ht]
-        # \begin{center}
-        # \begin{tabular}{|c|c|c|c|}
-        # \hline
-        # & Ground truth & Initialization & Reconstruction\\
-        # \hline
-        # \hline""")
-    
     f.write(r"""
-        \end{tabular}
-        \end{center}
-        \end{figure}
-        """)
-
-    
-    f.write(r"""\end{document}""")
-
-
-
-
-# import sys
-# import numpy as np
-
-# loaded_data = np.load("./results/data.npz")
-
-# nsites_array = loaded_data["nsites_array"]
-# nsources_array = loaded_data["nsources_array"]
-# nmesh_array = loaded_data["nmesh_array"]
-# noise_coeff_array = loaded_data["noise_coeff_array"]
-
-# noise_level_array = [100]*loaded_data["noise_level_array"]
-# finit_array = loaded_data["finit_array"]
-# ffinal_array = loaded_data["ffinal_array"]
-# normgpinit_array = loaded_data["normgpinit_array"]
-# normgpfinal_array  = loaded_data["normgpfinal_array"]
-
-# erroropt_array  = [100]*loaded_data["erroropt_array"]
-# errorinit_array  = [100]*loaded_data["errorinit_array"]
-# flagsol_array = loaded_data["flagsol_array"]
-# iter_array = loaded_data["iter_array"]
-# numevalf_array = loaded_data["numevalf_array"]
-# CPU_time_array = loaded_data["CPU_time_array"]
-
-# alphabet = []
-# for i in range(97, 123):
-#     alphabet.append(chr(i))
-
-# with open("./results/Results.tex", "w") as f:
-#     f.write(r"""\documentclass[a4paper,10pt]{article}
-#     \usepackage[utf8]{inputenc}
-
-#     \usepackage{amsmath, amsthm, amssymb}
-#     \usepackage{fullpage}
-#     \usepackage{dsfont}
-#     \usepackage{bm}
-#     \usepackage{xcolor}
-#     \usepackage{stmaryrd}
-#     \usepackage{graphicx}
-#     \usepackage{mathrsfs}
-#     \newcommand{\bsi}{{\bf a}}
-#     \newcommand{\ck}{{\kappa_0}}
-#     \usepackage{multirow}
-
-#     \graphicspath{{./figures/}}
-
-#     \begin{document}      
-
-#     \begin{table}[ht]
-#     \centering
-#     \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|}
-#     \hline 
-#     $\ck$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ &$G(\bsi^0)$ &$G(\hat\bsi)$ &$\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time \\ \hline""")
-#     for i in range(len(nsites_array)):
-#         f.write(str(nsites_array[i]) + r""" & """+str('%4.2f' % noise_level_array[i])+r"""& """+str('%5.2f' % errorinit_array[i])+r""" & """+str('%5.2f' % erroropt_array[i])+r""" & """+str('%4.2f' % finit_array[i])+r""" & """+str('%7.5f' % ffinal_array[i])+r""" & """+str('%7.5f' % normgpinit_array[i])+r""" & """+str('%7.5f' % normgpfinal_array[i])+r""" & """+str(iter_array[i])+r""" & """+str(numevalf_array[i])+r""" & """+str('%7.2f' % CPU_time_array[i])+r""" \\ \hline""")
-
-#         if (i+1)%40 == 0:
-#             f.write(r"""
-#             \end{tabular}
-#             \end{table}""")
-        
-#             f.write(r"""\begin{table}[ht]
-#         \centering
-#         \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|}
-#         \hline 
-#         $\ck$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ &$G(\bsi^0)$ &$G(\hat\bsi)$ &$\| \nabla G(\bsi^0)\|_{2}$ &$\|\nabla G(\hat\bsi)\|_{2}$ & $\#$iter & $\#$feval & Time \\ \hline""")
-        
-#     f.write(r"""
-#     \end{tabular}
-#     \end{table}""")
-
-#     f.write(r"""\begin{figure}[!htbp]
-#     \begin{center}
-#     \begin{tabular}{|c|c|c|c|}
-#     \hline
-#     & Ground truth & Initialization & Reconstruction\\
-#     \hline
-#     \hline""")
-
-#     for i in range(len(nsites_array)):
-#         if i % 4 == 0:
-#             l = 0
-#             name = 'blsfig'+str((i//4))
-
-#         f.write(r"""\multirow{3}{*}{\rotatebox{90}{$\ck=""" + str(nsites_array[i]) + r"""\;$}} & & & Noise = $"""+str('%4.2f' % noise_level_array[i])+r"""\%$  \\
-#         \cline{4-4}
-#         & & $E(\bsi^0) = """+str('%5.2f' % errorinit_array[i])+r"""\% $ & $E(\hat\bsi) = """+str('%5.2f' % erroropt_array[i])+r"""\% $ \\""")
-#         for j in range(3):
-#             f.write(r"""
-#             & \includegraphics[scale=0.8]{./figures/"""+name+str(alphabet[l])+r""".eps}""")
-#             l += 1
-#         f.write(r"""\\ \hline""")
-        
-#         if (i+1)%4 == 0:
-#             f.write(r"""
-#         \end{tabular}
-#         \end{center}
-#         \end{figure}
-#         """)
-#             f.write(r"""\begin{figure}[!htbp]
-#         \begin{center}
-#         \begin{tabular}{|c|c|c|c|}
-#         \hline
-#         & Ground truth & Initialization & Reconstruction\\
-#         \hline
-#         \hline""")
-    
-#     f.write(r"""
-#         \end{tabular}
-#         \end{center}
-#         \end{figure}
-#         """)
-#     f.write(r"""\end{document}""")
+\end{document}""")

@@ -5,6 +5,12 @@ from pdb import set_trace
 import shutil as sh
 import subprocess
 
+nsites_list = [5]
+ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+nsources_list = [1, 3]
+nmesh_list = [16, 32]
+noise_coeff_list = [0.005, 0.01]
+
 def voronoi(x, sigma, draw):
 
     An = 4
@@ -63,99 +69,53 @@ def voronoi(x, sigma, draw):
 
 subprocess.run(["bash", "compile.sh"], cwd="./files/")
 
-loaded_data = np.load("./results/data.npz")
-loaded_data1 = np.load("./results/data1.npz")
-
-nsites_array = loaded_data["nsites_array"]
-nsources_array = loaded_data["nsources_array"]
-nmesh_array = loaded_data["nmesh_array"]
-noise_coeff_array = loaded_data["noise_coeff_array"]
-sigma_array = loaded_data['sigma_array']
-solx_array = loaded_data['solx_array']
-xini_array = loaded_data['xini_array']
-xfinal_array = loaded_data['xfinal_array']
-Aeps_array = loaded_data['Aeps_array']
-
-ffinal_array1 = loaded_data1["ffinal_array"]
-
-
-ffinal1 = []
-ffinal2 = []
-ffinal3 = []
-vencedor = []
-
-for l in range(len(nsites_array)):
-    if nsources_array[l] == 1:
-        ffinal1.append(ffinal_array1[l])
-    # if nsources_array[l] == 2:
-    #     ffinal2.append(ffinal_array1[l])
-    if nsources_array[l] == 3:
-        ffinal3.append(ffinal_array1[l])
-
-best_ffinal1 = np.min(np.array(ffinal1))
-# best_ffinal2 = np.min(np.array(ffinal2))
-best_ffinal3 = np.min(np.array(ffinal3))
-
-# print(best_ffinal1)
-
-
-for l in range(len(nsites_array)):
-    if nsources_array[l] == 1 and ffinal_array1[l] <= best_ffinal1:
-        vencedor.append(l)
-    # if nsources_array[l] == 2 and ffinal_array1[l] <= best_ffinal2:
-        # vencedor.append(l)
-    if nsources_array[l] == 3 and ffinal_array1[l] <= best_ffinal3:
-        vencedor.append(l)
-
-
-position = np.zeros(len(nsites_array)+1)
-sig_pst = np.zeros(len(nsites_array)+1)
-for i in range(1, len(nsites_array)+1):
-    for l in range(i):
-        position[i] = position[i]+ nsites_array[l]
-        sig_pst[i] = sig_pst[i] + nsites_array[l] + 1
-
-position = np.array(position, dtype=int)
-sig_pst = np.array(sig_pst, dtype=int)
-
 alphabet = []
 for i in range(97, 123):
     alphabet.append(chr(i))
 
+k = 0
+for nsites in nsites_list:
+    for nmesh in nmesh_list:
+        for noise_coeff in noise_coeff_list:
+            for nsources in nsources_list:
+                for ninit in ninit_list:
+                    
+                    input_files = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
 
-l = 0
-name = 'blsfig6'
-for k in vencedor:
- 
-    nsites, nsources, nmesh, noise_coeff, Aeps, sigma, solx, xini, xfinal = nsites_array[k], nsources_array[k], nmesh_array[k], noise_coeff_array[k], Aeps_array[k], sigma_array[sig_pst[k]:sig_pst[k+1]], solx_array[2*position[k]:2*position[k+1]], xini_array[2*position[k]:2*position[k+1]], xfinal_array[2*position[k]:2*position[k+1]]
+                    loaded_data = np.load("./results/data/"+input_files+".npz")
+                   
+                    sigma = loaded_data['sigma']
+                    solx = loaded_data['solx']
+                    xini = loaded_data['xini']
+                    xfinal = loaded_data['xfinal']
+                    Aeps = loaded_data['Aeps']
 
-    
+                    if not os.path.exists('./results/figures'):
+                    # Create the directory if necessary
+                        os.makedirs('./results/figures')
 
-    if not os.path.exists('./results/figures'):
-        # Create the directory if necessary
-        os.makedirs('./results/figures')
+                    if k % 4 == 0:
+                        l = 0
+                        name = 'blsfig'+str((k//4))
 
-    # if k % 4 == 0:
-    #     l = 0
-    #     name = 'blsfig'+str((k//4))
+                        
+                    voronoi(solx, sigma, True)
+                    os.system('mpost voronoi.mp')
+                    os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
+                    os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
+                    l += 1
 
-        
-    voronoi(solx, sigma, True)
-    os.system('mpost voronoi.mp')
-    os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
-    os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
-    l += 1
+                    voronoi(xini, sigma, True)
+                    os.system('mpost voronoi.mp')
+                    os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
+                    os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
+                    l += 1
 
-    voronoi(xini, sigma, True)
-    os.system('mpost voronoi.mp')
-    os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
-    os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
-    l += 1
+                    voronoi(xfinal, sigma, True)
+                    os.system('mpost voronoi.mp')
+                    os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
+                    os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
+                    l += 1
+                    k += 1
 
-    voronoi(xfinal, sigma, True)
-    os.system('mpost voronoi.mp')
-    os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
-    os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
-    l += 1
-
-os.system('rm voronoi.mpx voronoi.log')
+                os.system('rm voronoi.mpx voronoi.log')

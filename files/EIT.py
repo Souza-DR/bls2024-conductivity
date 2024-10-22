@@ -389,7 +389,7 @@ def project(n, x):
     for i in range(int(n/2)):
         projectintoA(x[2*i:2*i+2])
 
-def projectedgradient(n, x, epsg, maxit):
+def projectedgradient(n, x, eps, maxit, maxtime):
     starttime = time.time()
     project(n, x)
 
@@ -433,7 +433,7 @@ def projectedgradient(n, x, epsg, maxit):
     smallstep = False
     smallxdiff = False
     TIME = False
-    while normgp > epsg and iter < maxit and not smallstep and not smallxdiff and not TIME:
+    while normgp > eps and iter < maxit and not smallstep and not smallxdiff and not TIME:
         iter = iter + 1
 
         alpha = 1.0
@@ -466,7 +466,7 @@ def projectedgradient(n, x, epsg, maxit):
 
             print('-->', alpha, ftrial, numevalf)
         
-            if alpha < 1E-6:
+            if alpha < eps:
                 smallstep = True
 
         xdiff = xtrial - x
@@ -502,20 +502,20 @@ def projectedgradient(n, x, epsg, maxit):
             txt.write(data)
         print(myTable)
 
-        if numpy.linalg.norm(xdiff) < 1.0E-6:
+        if numpy.linalg.norm(xdiff) < eps:
             smallxdiff = True
 
         finaltime = time.time()
         CPU_time = finaltime - starttime
 
-        if CPU_time >= 10800*nsources:
+        if CPU_time >= maxtime*nsources:
             TIME = True
             
 
     if iter > maxit-1:
         print('Maximum number of iterations reached')
         flagsol = 0
-    elif normgp <= epsg:
+    elif normgp <= eps:
         print('Small search direction')
         flagsol = 1
     elif smallstep:
@@ -847,6 +847,9 @@ typeProblem = int(sys.argv[6])
 typeinit = int(sys.argv[7])
 Num = int(sys.argv[8])
 Aeps = float(sys.argv[9])
+maxit = int(sys.argv[10])
+eps = float(sys.argv[11])
+maxtime = int(sys.argv[12])
 
 equidist = False
 binary = False
@@ -1001,8 +1004,6 @@ Htrial = TrialFunction(V2)
 vhtest = TestFunction(V2)
 
 #Initial parameter for projected gradient
-maxit = 500
-epsg = 1E-6
 random.seed(123456)
 xini = numpy.zeros(2*nsites)
 
@@ -1031,7 +1032,7 @@ elif typeinit == 3:
     ntrials = Num
     xini = randomInit(ntrials, nsites)
 
-flagsol, xfinal, finit, normgpinit, ffinal, normgpfinal, iter, numevalf = projectedgradient(2*nsites, xini, epsg, maxit)
+flagsol, xfinal, finit, normgpinit, ffinal, normgpfinal, iter, numevalf = projectedgradient(2*nsites, xini, eps, maxit, maxtime)
 
 ## Compute noise level##
 noise_level = noise()
@@ -1044,194 +1045,33 @@ CPU_time = finaltime - starttime
 #Computing the error
 erroropt, errorinit = plotVor(sigma, nsites, mesh, V1, solx, xini, xfinal)
 
-# Save table of iterations
-
-if not os.path.exists("./results"):
-    # Create the directory if necessary
-    os.makedirs('./results')
-
-input_files = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
-os.rename('./saida.txt', './results/'+input_files+'.txt')
-
-
-def add(old, current):
-        total = len(old) + len(current)
-        new = numpy.zeros(total)
-        new[0:len(old)] = old
-        new[len(old):total] = current
-        return new
-
-if os.path.exists("./results/data.npz"):
-    loaded_data = numpy.load("./results/data.npz")
-
-    nsites_array = loaded_data["nsites_array"]
-    nsources_array = loaded_data["nsources_array"]
-    nmesh_array = loaded_data["nmesh_array"]
-    noise_coeff_array = loaded_data["noise_coeff_array"]
-    noise_level_array = loaded_data["noise_level_array"]
-    Aeps_array = loaded_data["Aeps_array"]
-    finit_array = loaded_data["finit_array"]
-    normgpinit_array = loaded_data["normgpinit_array"]
-    ffinal_array = loaded_data["ffinal_array"]
-    normgpfinal_array  = loaded_data["normgpfinal_array"]
-    erroropt_array  = loaded_data["erroropt_array"]
-    errorinit_array  = loaded_data["errorinit_array"]
-    flagsol_array = loaded_data["flagsol_array"]
-    iter_array = loaded_data["iter_array"]
-    numevalf_array = loaded_data["numevalf_array"]
-    CPU_time_array = loaded_data["CPU_time_array"]
-    sigma_array = loaded_data["sigma_array"]
-    solx_array = loaded_data["solx_array"]
-    xini_array = loaded_data["xini_array"]
-    xfinal_array = loaded_data["xfinal_array"]
-
-    sigma_array = add(sigma_array, sigma)
-    solx_array = add(solx_array, solx)
-    xini_array = add(xini_array, xini)
-    xfinal_array = add(xfinal_array, xfinal)
-
-    
-    nsites_list = nsites_array.tolist()
-    nsources_list = nsources_array.tolist()
-    nmesh_list = nmesh_array.tolist()
-    noise_coeff_list = noise_coeff_array.tolist()
-    noise_level_list = noise_level_array.tolist()
-    Aeps_list = Aeps_array.tolist()
-    finit_list = finit_array.tolist()
-    normgpinit_list = normgpinit_array.tolist()
-    ffinal_list = ffinal_array.tolist()
-    normgpfinal_list = normgpfinal_array.tolist()
-    erroropt_list = erroropt_array.tolist()
-    errorinit_list = errorinit_array.tolist()
-    flagsol_list = flagsol_array.tolist()
-    iter_list = iter_array.tolist()
-    numevalf_list = numevalf_array.tolist()
-    CPU_time_list = CPU_time_array.tolist()
-    
-
-    nsites_list.append(nsites)
-    nsources_list.append(nsources)
-    nmesh_list.append(nmesh)
-    noise_coeff_list.append(noise_coeff)
-    Aeps_list.append(Aeps)
-    finit_list.append(finit)
-    noise_level_list.append(noise_level)
-    normgpinit_list.append(normgpinit)
-    ffinal_list.append(ffinal)
-    normgpfinal_list.append(normgpfinal)
-    erroropt_list.append(erroropt)
-    errorinit_list.append(errorinit)
-    flagsol_list.append(flagsol)
-    iter_list.append(iter)
-    numevalf_list.append(numevalf)
-    CPU_time_list.append(CPU_time)
-
-else:
-    nsites_list = [nsites]
-    nsources_list = [nsources]
-    nmesh_list = [nmesh]
-    noise_coeff_list = [noise_coeff]
-    Aeps_list = [Aeps]
-    finit_list = [finit]
-    noise_level_list =[noise_level]
-    normgpinit_list = [normgpinit]
-    ffinal_list = [ffinal]
-    normgpfinal_list = [normgpfinal]
-    erroropt_list = [erroropt]
-    errorinit_list = [errorinit]
-    flagsol_list = [flagsol]
-    iter_list = [iter]
-    numevalf_list = [numevalf]
-    CPU_time_list = [CPU_time]
-    sigma_array = sigma
-    solx_array = solx
-    xini_array = xini
-    xfinal_array = xfinal
-
-nsites_array = numpy.array(nsites_list)
-nsources_array = numpy.array(nsources_list)
-nmesh_array = numpy.array(nmesh_list)
-noise_coeff_array = numpy.array(noise_coeff_list)
-Aeps_array = numpy.array(Aeps_list)
-finit_array = numpy.array(finit_list)
-noise_level_array = numpy.array(noise_level_list)
-normgpinit_array = numpy.array(normgpinit_list)
-ffinal_array = numpy.array(ffinal_list)
-normgpfinal_array = numpy.array(normgpfinal_list)
-erroropt_array = numpy.array(erroropt_list)
-errorinit_array = numpy.array(errorinit_list)
-flagsol_array = numpy.array(flagsol_list)
-iter_array = numpy.array(iter_list)
-numevalf_array = numpy.array(numevalf_list)
-CPU_time_array = numpy.array(CPU_time_list)
-
-
-numpy.savez("./results/data.npz", nsites_array=nsites_array, nsources_array=nsources_array, nmesh_array=nmesh_array, noise_coeff_array=noise_coeff_array, Aeps_array=Aeps_array, 
-finit_array=finit_array,
-noise_level_array=noise_level_array,
-normgpinit_array=normgpinit_array,
-ffinal_array=ffinal_array,
-normgpfinal_array=normgpfinal_array, erroropt_array=erroropt_array,
-errorinit_array=errorinit_array,
-flagsol_array=flagsol_array, iter_array=iter_array, numevalf_array=numevalf_array, CPU_time_array=CPU_time_array, sigma_array=sigma_array, solx_array=solx_array, xini_array=xini_array, xfinal_array=xfinal_array)
-
-
-
+# Calculating the initial value of the cost function and the gradient, without weights
 weightsG = numpy.ones(nsources)
 vor, istop = voronoi(xini, draw = False)
 if istop != 0:
     print('The Voronoi method encountered an error while constructing the manufactured solution')
     sys.exit()
-finit, ginit = evalfg(2*nsites, xini, vor, greq = True)
-gp = xini - ginit
+finit1, ginit1 = evalfg(2*nsites, xini, vor, greq = True)
+gp = xini - ginit1
 project(2*nsites, gp)
 gp = gp - xini
-normgpinit = numpy.linalg.norm(gp)
+normgpinit1 = numpy.linalg.norm(gp)
 
 
 vor, istop = voronoi(xfinal, draw = False)
 if istop != 0:
     print('The Voronoi method encountered an error while constructing the manufactured solution')
     sys.exit()
-ffinal, gfinal = evalfg(2*nsites, xfinal, vor, greq = True)
-gp = xfinal - gfinal
+ffinal1, gfinal1 = evalfg(2*nsites, xfinal, vor, greq = True)
+gp = xfinal - gfinal1
 project(2*nsites, gp)
 gp = gp - xfinal
-normgpfinal = numpy.linalg.norm(gp)
+normgpfinal1 = numpy.linalg.norm(gp)
+
+namefile = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
+
+numpy.savez("./"+namefile+".npz", nsites=nsites, nsources=nsources, nmesh=nmesh, noise_coeff=noise_coeff, Aeps=Aeps, 
+finit=finit, noise_level=noise_level, normgpinit=normgpinit, ffinal=ffinal, normgpfinal=normgpfinal, erroropt=erroropt, errorinit=errorinit, flagsol=flagsol, iter=iter, numevalf=numevalf, CPU_time=CPU_time, sigma=sigma, solx=solx, xini=xini, xfinal=xfinal, finit1=finit1, ffinal1=ffinal1, normgpinit1=normgpinit1, normgpfinal1=normgpfinal1)
 
     
-if os.path.exists("./results/data1.npz"):
-
-    loaded_data = numpy.load("./results/data1.npz")
-
-    finit_array = loaded_data["finit_array"]
-    ffinal_array = loaded_data["ffinal_array"]
-    normgpinit_array = loaded_data["normgpinit_array"]
-    normgpfinal_array = loaded_data["normgpfinal_array"]
-
-    finit_list = finit_array.tolist()
-    ffinal_list = ffinal_array.tolist()
-    normgpinit_list = normgpinit_array.tolist()
-    normgpfinal_list = normgpfinal_array.tolist()
-
-    finit_list.append(finit)
-    ffinal_list.append(ffinal)
-    normgpinit_list.append(normgpinit)
-    normgpfinal_list.append(normgpfinal)
-
-else:
-    finit_list = [finit]
-    ffinal_list = [ffinal]
-    normgpinit_list = [normgpinit]
-    normgpfinal_list = [normgpfinal]
-
-
-finit_array = numpy.array(finit_list)
-ffinal_array = numpy.array(ffinal_list)
-normgpinit_array = numpy.array(normgpinit_list)
-normgpfinal_array = numpy.array(normgpfinal_list) 
-
-numpy.savez("./results/data1.npz", finit_array=finit_array, ffinal_array=ffinal_array, normgpinit_array=normgpinit_array, normgpfinal_array=normgpfinal_array)
-
-
 print('End of main loop !!')
