@@ -5,6 +5,11 @@ import gfort2py as gf
 import subprocess
 from pdb import set_trace
 
+# There are two cases for the conductivity problem: with internal measurements and with boundary measurements.
+measurement = "Internal"
+# or
+# measurement = "Boundary"
+
 ## Type of problemns: Type = 1 (Equidist); Type = 2 (binary); Type = 3 (ternary);##
 typeproblem = 1
 
@@ -16,8 +21,8 @@ typeproblem = 1
 typeinit = 1
 N = 100
 
-#Fixed boundary layer width
-Aeps = 0.05
+# Choose the width of the domain boundary A: Aeps = 0.0 for the case of internal measurements, and Aeps > 0.0 for the case of boundary measurements.
+Aeps = 0.0
 
 # Spectral projected gradient method parameters
 maxit = 4 # Maximum number of iterations
@@ -26,6 +31,7 @@ maxtime = 10800 # Maximum execution time for each instance
 
 nsites_list = [5]
 ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# Warning: for the case with boundary measurements, the number of sources (nsources) must be 1 or 3. For the case with internal measurements, choose between 1 and 4.
 nsources_list = [1, 3]
 nmesh_list = [16, 32]
 noise_coeff_list = [0.005, 0.01]
@@ -49,16 +55,11 @@ for nsites in nsites_list:
                     sh.copyfile("./files/vorintpols.f90", input_files+"/vorintpols.f90")
                     sh.copyfile("./files/voro.f90", input_files+"/voro.f90")
                     sh.copyfile("./files/voroextras.f90", input_files+"/voroextras.f90")
-                    sh.copyfile("./files/EIT.py", input_files+"/EIT.py")
+                    sh.copyfile("./files/"+measurement+".py", input_files+"/"+measurement+".py")
 
                     with open(input_files+"/instance.sh", "w") as f:
                         f.write(r"""#!/bin/bash
-FILE=./"""+input_files+r""".npz
 DIR=./gfortcache
-
-if [ -e  $FILE ] ; then
-  rm ./results/data.npz
-fi
 
 if [ -e  $DIR ] ; then
   rm -r ./gfortcache
@@ -68,7 +69,7 @@ gfortran -fPIC -shared -O4 vorintpols.f90
 gfortran -fPIC -shared -O4 -c voro.f90
 gfortran -fPIC -shared -O4 -o libvoro.so mergesort.f90 geometry.f90 geompack2.f90 vorintpols.f90 voro.f90
 
-python_script="EIT.py"
+python_script=" """+measurement+r""".py"
 
 typeproblem="""+str(typeproblem)+r"""
 
@@ -96,7 +97,7 @@ for ninit in "${ninit_list[@]}"; do
 for nsources in "${nsources_list[@]}"; do
 for nmesh in "${nmesh_list[@]}"; do
     echo "Running $python_script with argument: $arg1"
-    python3 EIT.py $nsites $ninit $nsources $nmesh $noise_coeff $typeproblem $typeinit $N $Aeps $maxit $eps $maxtime
+    python3 """+measurement+r""".py $nsites $ninit $nsources $nmesh $noise_coeff $typeproblem $typeinit $N $Aeps $maxit $eps $maxtime
 done
 done
 done
@@ -140,8 +141,8 @@ for nsites in nsites_list:
                     if os.path.exists("./instances/"+filename):  
                         sh.move("./instances/"+filename+'/'+filename+'.npz', './results/data/'+filename+'.npz')
                    
-                        #Delete the directories and all your files.
-                        sh.rmtree("./instances/"+filename)
+#Delete the directorie and all your files.
+sh.rmtree("./instances/")
             
 
 

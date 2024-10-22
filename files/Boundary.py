@@ -238,7 +238,6 @@ def evalfg(n, x, vor, greq=False):
             weightsG[alpha] = 1.0/Galpha
     
         G = G + 0.5 * weightsG[alpha] * Galpha
-        # print('Galpha =', Galpha)
         
         ### Boundary Expression ###
         if greq:
@@ -326,18 +325,6 @@ def evalfg(n, x, vor, greq=False):
                 
                 S1minus = S1minus - outer(grad_psol('-'),Constant(sigma[i])*grad_usol('-')) - outer(Constant(sigma[i])*(grad_usol('-') - grad_Hsol('-')), grad_psol('-')) - outer(grad_qsol('-'),Constant(sigma[i])*grad_vsol('-')) - outer(Constant(sigma[i])*(grad_vsol('-') - grad_Hsol('-')),grad_qsol('-'))
 
-                # tempplus = Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
-
-                # S1plus = Identity(2)*tempplus 
-
-                # S1plus = S1plus - 2*outer(grad_psol('+'),Constant(sigma[i])*grad_usol('+')) - 2*outer(grad_qsol('+'),Constant(sigma[i])*grad_vsol('+'))
-
-                # tempminus = Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
-
-                # S1minus = Identity(2)*tempminus
-                
-                # S1minus = S1minus - 2*outer(grad_psol('-'),Constant(sigma[i])*grad_usol('-')) - 2*outer(grad_qsol('-'),Constant(sigma[i])*grad_vsol('-'))
-
                 for r in range(len(vor[i])):
                     v = ((vor[i])[r])[0]
                     vflag = ((vor[i])[r])[1]
@@ -419,7 +406,7 @@ def projectedgradient(n, x, eps, maxit, maxtime):
     project(n, d)
     d = d - x
 
-    # Saving the initial values of G(x^0) and |grad G(x^0)|
+    # Saving the values of G(x^0) and |grad G(x^0)|
     finit, normgpinit = f, normgp
 
     iter = 0
@@ -566,16 +553,12 @@ def vorDiag(sigma, m, mesh, V, sites):
 
     # Assign values to each cell
     for cell in cells(mesh):
-        # The index() function returns the index of the cell
-        #cell_values[cell] = cell.index()
+
         vertex_coordinates = cell.get_vertex_coordinates()
-        # Print the coordinates
-        #print(f"Coordinates of cell {cell.index()}: {vertex_coordinates}")    
-    
+            
         midpoint_x = (vertex_coordinates[0] + vertex_coordinates[2] + vertex_coordinates[4])/3.0
         midpoint_y = (vertex_coordinates[1] + vertex_coordinates[3] + vertex_coordinates[5])/3.0
        
-        #print('vertex_coordinates = ',vertex_coordinates)
         dist = numpy.zeros(m) 
         for k in range(m):
             dist[k] = (midpoint_x - sites[2*k])**2 + (midpoint_y - sites[2*k+1])**2  
@@ -592,17 +575,17 @@ def vorDiag(sigma, m, mesh, V, sites):
     return f
 
 
-def plotVor(sigma, nsites, mesh, V, solx, xini, xfinal):
+def evalerror(sigma, nsites, mesh, V, solx, xini, xfinal):
 
     ground = vorDiag(sigma, nsites, mesh, V, solx)  
   
     fini = vorDiag(sigma, nsites, mesh, V, xini)  
 
-    fopt = vorDiag(sigma, nsites, mesh, V, xfinal)  
+    ffinal = vorDiag(sigma, nsites, mesh, V, xfinal)  
 
     groundnorm = assemble( ground * dx )
     error_init = assemble( abs(fini - ground) * dx )/groundnorm
-    error_opt = assemble( abs(fopt - ground) * dx )/groundnorm
+    error_opt = assemble( abs(ffinal - ground) * dx )/groundnorm
 
     print('error_init = ', error_init)
     print('error_opt = ', error_opt)
@@ -878,18 +861,16 @@ V2 = FunctionSpace(mesh, P2)
 # Define domains
 domains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
 
-# Definindo o domínio triangular de integração
-# triangdomains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
-
 # Define internal interface domain
 int_boundary = MeshFunction("size_t", mesh, mesh.topology().dim()-1, 0)
 
-# Definindo o domínio linear de integração
-# intboundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
+# Phi_l functions that define the domain D:
+# left   -> phi_1 = -x[0] 
+# right  -> phi_2 = x[0] - 1
+# top    -> phi_3 = -x[1] 
+# bottom -> phi_4 = x[1] - 1 
 
-#Funções phi_l que definem o domínio D: left-> phi_1 = -x[0], right-> phi_2 = x[0] - 1, top-> phi_3 = -x[1], bottom-> phi_4 = x[1] - 1 
-#Gradientes:
-
+# Gradients:
 gradphi_1 = [-1.0, 0.0]
 gradphi_2 = [1.0, 0.0]
 gradphi_3 = [0.0, -1.0]
@@ -933,14 +914,13 @@ gvec_list = [as_vector([Constant("1.0"), Constant("1.0"), Constant("-1.0"), Cons
 #     print('The maximum number of sources is 3')
 #     sys.exit()
     
-
 solx = get_data(nsites)
 
-# Determinando os vértices das células de Voronoi
-vor, istop = voronoi(solx, draw = False)
-if istop != 0:
-    print('The Voronoi method encountered an error while constructing the manufactured solution')
-    sys.exit()
+# # Determinando os vértices das células de Voronoi
+# vor, istop = voronoi(solx, draw = False)
+# if istop != 0:
+#     print('The Voronoi method encountered an error while constructing the manufactured solution')
+#     sys.exit()
     
 #  Tag subdomains
 omega(solx)
@@ -952,8 +932,9 @@ left   = Left()
 top    = Top()
 right  = Right()
 bottom = Bottom()
+
 aboundaries = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
-# aboundaries.set_all(0)
+
 left.mark(  aboundaries, 1)
 right.mark( aboundaries, 2)
 top.mark(   aboundaries, 3)
@@ -1039,11 +1020,10 @@ noise_level = noise()
 
 # Final time
 finaltime = time.time()
-
 CPU_time = finaltime - starttime
 
 #Computing the error
-erroropt, errorinit = plotVor(sigma, nsites, mesh, V1, solx, xini, xfinal)
+erroropt, errorinit = evalerror(sigma, nsites, mesh, V1, solx, xini, xfinal)
 
 # Calculating the initial value of the cost function and the gradient, without weights
 weightsG = numpy.ones(nsources)
