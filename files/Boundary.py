@@ -312,14 +312,21 @@ def evalfg(n, x, vor, greq=False):
                 grad_qsol = grad(qsol)
                 grad_Hsol = grad(Hsol)
 
-                tempplus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+                # the terms that are continuous can be removed because they cancel out at the interface of two cells
+
+                # tempplus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+
+                tempplus = Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
 
                 S1plus = Identity(2)*tempplus 
 
                 S1plus = S1plus - outer(grad_psol('+'),Constant(sigma[i])*grad_usol('+')) - outer(Constant(sigma[i])*(grad_usol('+') - grad_Hsol('+')), grad_psol('+')) - outer(grad_qsol('+'),Constant(sigma[i])*grad_vsol('+')) - outer(Constant(sigma[i])*(grad_vsol('+') - grad_Hsol('+')),grad_qsol('+'))
             
+                # the terms that are continuous can be removed because they cancel out at the interface of two cells
+                
+                # tempminus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
 
-                tempminus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
+                tempminus = Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
 
                 S1minus = Identity(2)*tempminus
                 
