@@ -7,7 +7,7 @@
 *.mpx
 *.tex
 files/gfortcache/
-files/compile.sh
+# files/compile.sh
 results/
 compile.sh
 instances/
