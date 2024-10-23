@@ -68,7 +68,7 @@ def voronoi(x, sigma, draw):
         
     return vor, istop
 
-subprocess.run(["bash", "compile.sh"], cwd="./files/")
+subprocess.run(["bash", "libraryfortran.sh"], cwd="./files/")
 
 alphabet = []
 for i in range(97, 123):
