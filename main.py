@@ -6,9 +6,9 @@ import subprocess
 from pdb import set_trace
 
 # There are two cases for the conductivity problem: with internal measurements and with boundary measurements.
-measurement = "Internal"
+# measurement = "Internal"
 # or
-# measurement = "Boundary"
+measurement = "Boundary"
 
 ## Type of problemns: Type = 1 (Equidist); Type = 2 (binary); Type = 3 (ternary);##
 typeproblem = 1
@@ -25,16 +25,16 @@ N = 100
 Aeps = 0.0
 
 # Spectral projected gradient method parameters
-maxit = 4 # Maximum number of iterations
+maxit = 1 # Maximum number of iterations
 eps = 1E-6 # Epsilon that determines the lack of progress in the movement of sites, determines whether the step is too small in line search and whether the search direction is small.
 maxtime = 10800 # Maximum execution time for each instance
 
-nsites_list = [5]
-ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+nsites_list = [9]
+ninit_list = [1]
 # Warning: for the case with boundary measurements, the number of sources (nsources) must be 1 or 3. For the case with internal measurements, choose between 1 and 4.
-nsources_list = [1, 3]
-nmesh_list = [16, 32]
-noise_coeff_list = [0.005, 0.01]
+nsources_list = [1]
+nmesh_list = [128]
+noise_coeff_list = [0.005]
 
 #Moving the necessary files to run the tests with the adjusted parameters
 for nsites in nsites_list:

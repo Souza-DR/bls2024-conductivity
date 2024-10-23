@@ -170,8 +170,8 @@ def noise():
         h_perturb = numpy.random.default_rng(seed=123456).normal(loc= 0, scale=noise_coeff*max_hsolve, size=hsolve.vector()[:].size)
         hsolve.vector()[:] = hsolve_temp.vector()[:] + h_perturb
 
-        noise_num = noise_num + zeta_alpha*assemble( (hsolve - hsolve_temp)**2 * dx ) 
-        noise_denom = noise_denom +  zeta_alpha*assemble( hsolve_temp**2 * dx )
+        noise_num = noise_num + zeta_alpha*assemble( (hsolve - hsolve_temp)**2 * ds(1) +  (hsolve - hsolve_temp)**2 * ds(2) + (hsolve - hsolve_temp)**2 * ds(3) + (hsolve - hsolve_temp)**2 * ds(4)) 
+        noise_denom = noise_denom +  zeta_alpha*assemble( hsolve_temp**2 * ds(1) + hsolve_temp**2 * ds(2) + hsolve_temp**2 * ds(3) + hsolve_temp**2 * ds(4) )
     
     noise_level = numpy.sqrt(noise_num / noise_denom)
     return noise_level

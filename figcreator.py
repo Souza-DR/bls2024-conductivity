@@ -5,11 +5,12 @@ from pdb import set_trace
 import shutil as sh
 import subprocess
 
-nsites_list = [5]
-ninit_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-nsources_list = [1, 3]
-nmesh_list = [16, 32]
-noise_coeff_list = [0.005, 0.01]
+nsites_list = [9]
+ninit_list = [1]
+# Warning: for the case with boundary measurements, the number of sources (nsources) must be 1 or 3. For the case with internal measurements, choose between 1 and 4.
+nsources_list = [1]
+nmesh_list = [128]
+noise_coeff_list = [0.005]
 
 def voronoi(x, sigma, draw):
 
