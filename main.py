@@ -25,7 +25,7 @@ N = 100
 Aeps = 0.0
 
 # Spectral projected gradient method parameters
-maxit = 1 # Maximum number of iterations
+maxit = 500 # Maximum number of iterations
 eps = 1E-6 # Epsilon that determines the lack of progress in the movement of sites, determines whether the step is too small in line search and whether the search direction is small.
 maxtime = 10800 # Maximum execution time for each instance
 
