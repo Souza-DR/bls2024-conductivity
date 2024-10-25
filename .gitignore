@@ -12,3 +12,4 @@ compile.sh
 instances/
 melhorias
 Testes
+__pycache__
