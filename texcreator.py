@@ -1,13 +1,13 @@
 import numpy as np
 import sys
 from pdb import set_trace
+import parameters as prt
 
-nsites_list = [9]
-ninit_list = [1]
-# Warning: for the case with boundary measurements, the number of sources (nsources) must be 1 or 3. For the case with internal measurements, choose between 1 and 4.
-nsources_list = [1]
-nmesh_list = [128]
-noise_coeff_list = [0.005]
+nsites_list = prt.nsites_list
+ninit_list = prt.ninit_list
+nsources_list = prt.nsources_list
+nmesh_list = prt.nmesh_list
+noise_coeff_list = prt.noise_coeff_list
 
 winner = []
 for nsites in nsites_list:

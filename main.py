@@ -4,37 +4,22 @@ import shutil as sh
 import gfort2py as gf
 import subprocess
 from pdb import set_trace
+import parameters as prt
 
-# There are two cases for the conductivity problem: with internal measurements and with boundary measurements.
-# measurement = "Internal"
-# or
-measurement = "Boundary"
+measurement = prt.measurement
+typeproblem = prt.typeproblem
+typeinit = prt.typeinit
+N = prt.N
+Aeps = prt.Aeps
+maxit = prt.maxit
+eps = prt.eps
+maxtime = prt.maxtime
+nsites_list = prt.nsites_list
+ninit_list = prt.ninit_list
+nsources_list = prt.nsources_list
+nmesh_list = prt.nmesh_list
+noise_coeff_list = prt.noise_coeff_list
 
-## Type of problemns: Type = 1 (Equidist); Type = 2 (binary); Type = 3 (ternary);##
-typeproblem = 1
-
-## Types of initialization
-# typeinit = 1 Just one initialization and one optimization (For additional initializations and optimizations, add 2, 3, etc. to ninit_list) 
-# Warning: if typeinit = 2 or 3, then make ninit_list=(1).
-# typeinit = 2 N perturbations of the ground truth (The value of N must be provided) 
-# typeinit = 3 N random initializations (The value of N must be provided) 
-typeinit = 1
-N = 100
-
-# Choose the width of the domain boundary A: Aeps = 0.0 for the case of internal measurements, and Aeps > 0.0 for the case of boundary measurements.
-Aeps = 0.0
-
-# Spectral projected gradient method parameters
-maxit = 500 # Maximum number of iterations
-eps = 1E-6 # Epsilon that determines the lack of progress in the movement of sites, determines whether the step is too small in line search and whether the search direction is small.
-maxtime = 10800 # Maximum execution time for each instance
-
-nsites_list = [9]
-ninit_list = [1]
-# Warning: for the case with boundary measurements, the number of sources (nsources) must be 1 or 3. For the case with internal measurements, choose between 1 and 4.
-nsources_list = [1]
-nmesh_list = [128]
-noise_coeff_list = [0.005]
 
 #Moving the necessary files to run the tests with the adjusted parameters
 for nsites in nsites_list:
@@ -143,6 +128,6 @@ for nsites in nsites_list:
                    
 #Delete the directorie and all your files.
 sh.rmtree("./instances/")
-            
 
-
+#Creating a PDF with all tables and reconstructions from the tests
+os.system("bash results.sh")
