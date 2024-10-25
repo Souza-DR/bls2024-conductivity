@@ -21,6 +21,23 @@ nmesh_list = prt.nmesh_list
 noise_coeff_list = prt.noise_coeff_list
 
 
+if measurement == 'Boundary' and Aeps == 0.0:
+    print('Warning: For the case of boundary measurements, the width of the domain boundary should be Aeps > 0.0')
+    sys.exit()
+
+if measurement == 'Boundary' and not set(nsources_list).issubset({1, 3}):
+    print('Warning: For the case with boundary measurements, the number of sources (nsources) must be 1 or 3')
+    sys.exit()
+
+if measurement == 'Internal' and not set(nsources_list).issubset({1, 2, 3, 4}):
+    print('Warning: For cases with internal measurements, the number of sources (nsources) must be chosen between 1 and 4')
+    sys.exit()
+
+if (typeinit == 2 or typeinit == 3) and max(ninit_list) > 1:
+    print('Warning: if typeinit = 2 or 3, then make ninit_list=(1)')
+    sys.exit()
+
+
 #Moving the necessary files to run the tests with the adjusted parameters
 for nsites in nsites_list:
     for nmesh in nmesh_list:
