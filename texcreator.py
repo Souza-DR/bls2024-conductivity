@@ -75,18 +75,19 @@ $\ck$ & $\bar \im$ & Noise & $E(\bsi^0)$ &$E(\hat\bsi)$ & $G(\bsi^0)$ & $G(\hat\
                         nsources = (loaded_data["nsources"]).astype(int)
                         nmesh = loaded_data["nmesh"]
                         noise_coeff = loaded_data["noise_coeff"]
-                        noise_level = [100]*loaded_data["noise_level"]
+                        noise_level = 100*loaded_data["noise_level"]
                         finit = loaded_data["finit"]
                         ffinal = loaded_data["ffinal"]
                         normgpinit = loaded_data["normgpinit"]
                         normgpfinal  = loaded_data["normgpfinal"]
-                        erroropt  = [100]*loaded_data["erroropt"]
-                        errorinit  = [100]*loaded_data["errorinit"]
+                        erroropt  = 100*loaded_data["erroropt"]
+                        errorinit  = 100*loaded_data["errorinit"]
                         flagsol = (loaded_data["flagsol"]).astype(int)
                         iter = (loaded_data["iter"]).astype(int)
                         numevalf = (loaded_data["numevalf"]).astype(int)
                         CPU_time = loaded_data["CPU_time"]
 
+                        
                         if ninit == winner[pst]:
                             f.write(
 str(nsites) + r""" & """+str(nsources) + r""" & """+str('%4.2f' % noise_level)+r"""& """+str('%5.2f' % errorinit)+r""" & """+str('%5.2f' % erroropt)+r""" & """+str('%4.2f' % finit)+r""" & """+str('%7.5f' % ffinal)+r""" & """+str('%7.5f' % normgpinit)+r""" & """+str('%7.5f' % normgpfinal)+r""" & """+str(iter)+r""" & """+str(numevalf)+r""" & """+str('%7.2f' % CPU_time)+r""" & """+str(flagsol) + r""" & \textbf{"""+str('%10.3e' % ffinal1)+r"""}\\ \hline
