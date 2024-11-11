@@ -4,6 +4,7 @@ from prettytable import PrettyTable
 import gfort2py as gf
 import matplotlib.pyplot as plt
 from pdb import set_trace
+import vorofunction as vf
         
 def entire_bd(x, on_boundary):
     return on_boundary        
@@ -42,68 +43,6 @@ def omega(x):
 
         domains.array()[cell.index()] = kmin
 
-def voronoi(x, draw):
-
-    An = 4
-    Ax = numpy.array([0.0, 1.0, 1.0, 0.0, 0.0])
-    Ay = numpy.array([0.0, 0.0, 1.0, 1.0, 0.0])
-    Aflag = numpy.array([4, 2, 3, 1, 4])
-
-    nsites = int(len(x)/2)
-    sites = numpy.zeros((nsites,2))
-    for i in range(nsites):
-        sites[i,:] = x[2*i:2*i+2]
-
-    vor = []    
-    if nsites >= 3:
-        SHARED_LIB_NAME=f'./libvoro.so'
-        MOD_FILE_NAME='voro.mod'
-
-        user_cache_dir = './gfortcache'
-        if not os.path.exists(user_cache_dir):
-        # Create the directory if necessary
-            os.makedirs(user_cache_dir)
-
-        x=gf.fFort(SHARED_LIB_NAME,MOD_FILE_NAME, cache_folder=user_cache_dir)
-        
-        nvmax = 500
-        nv = int(0)
-        vx = numpy.zeros(nvmax,dtype=float)
-        vy = numpy.zeros(nvmax,dtype=float)
-        vflag = numpy.zeros(nvmax,dtype=int)
-        sstart = numpy.zeros(nsites+1,dtype=int)
-        istop = int(0)
-        mydict = x.voronoi(nsites,sites.T,An,Ax,Ay,Aflag,nvmax,sstart,nv,vx,vy,vflag,istop)[1]
-        istop = (mydict)['istop']
-
-        if istop == 0:
-            sstart = (mydict)['sstart']
-            nv = (mydict)['nv']
-            vx = (mydict)['vx']
-            vy = (mydict)['vy']
-            vectorvflag = (mydict)['vflag']
-
-            #Ajustando os índices das células
-            for i in range(len(vectorvflag)):
-                if vectorvflag[i] > 0:
-                    vectorvflag[i] = vectorvflag[i] - 1
-
-            for i in range(nsites):
-                cell = []
-                for k in range(sstart[i] - 1,sstart[i+1] - 1):
-                    cell.append([[vx[k],vy[k]],vectorvflag[k]])
-                vor.append(cell)
-
-            if draw:
-                colors = sigma.astype(int)
-                x.drawvor(nsites,sites.T,colors,An,Ax,Ay,sstart,nv,vx,vy)
-    
-    if nsites == 2:
-        print('Warning: choose nsites >= 3')            
-        sys.exit()
-                    
-    return vor, istop
-
 def rotate(x):
     return numpy.array([-x[1], x[0]])
 
@@ -115,7 +54,7 @@ def incenter(A, B, C):
 
 def xinit(ninit):
     for j in range(ninit):
-        # Perturbando a solução e projetando em D = [0,1]x[0,1]
+        # Perturbing the solution and projecting onto D = [Aeps, 1 - Aeps]x[Aeps, 1 - Aeps]
         for i in range(2*nsites):
             xini[i] = max(0.0, min(1.0, solx[i] + 0.1*(2*random.random() - 1)))
     return xini
@@ -274,7 +213,7 @@ def projectedgradient(n, x, eps, maxit, maxtime):
     starttime = time.time()
     project(n, x)
 
-    vor, vorflag = voronoi(x, draw = True)
+    vor, vorflag = vf.voronoi(x, sigma, Aeps, draw = True)
     if vorflag != 0:
         print('In projectedgradient, voronoi diagram is not well defined at (projection of) the initial guess')
         sys.exit()
@@ -319,7 +258,7 @@ def projectedgradient(n, x, eps, maxit, maxtime):
 
         alpha = 1.0
         xtrial = x + alpha * d
-        vor, vorflag = voronoi(xtrial, draw = False)
+        vor, vorflag = vf.voronoi(xtrial, sigma, Aeps, draw = False)
         if vorflag != 0:
             ftrial = float('inf')
         else:
@@ -338,7 +277,7 @@ def projectedgradient(n, x, eps, maxit, maxtime):
                 atrial = alpha / 2
             alpha = atrial
             xtrial = x + alpha * d
-            vor, vorflag = voronoi(xtrial, draw = False)
+            vor, vorflag = vf.voronoi(xtrial, sigma, Aeps, draw = False)
             if vorflag != 0:
                 ftrial = float('inf')
             else:
@@ -353,7 +292,7 @@ def projectedgradient(n, x, eps, maxit, maxtime):
         xdiff = xtrial - x
 
         x = xtrial
-        vor, vorflag = voronoi(x, draw = True)
+        vor, vorflag = vf.voronoi(x, sigma, Aeps, draw = True)
         if vorflag != 0:
             print('In projectedgradient, vorflag must be zero here and it is not.')
 
@@ -421,7 +360,7 @@ def randomInit(ntrials, nsites):
     
     for k in range(ntrials):
         xtrial = xtrial_mat[:,k]
-        vor, istop = voronoi(xtrial, draw = False)
+        vor, istop = vf.voronoi(xtrial, sigma, Aeps, draw = False)
         if istop != 0:
             print('The Voronoi method encountered an error when constructing a diagram from a random initialization.')
             sys.exit()
@@ -834,14 +773,14 @@ elif typeinit == 2:
     global weightsG
     weightsG = numpy.ones(nsources)
     xini = xinit(ninit)
-    vor, istop = voronoi(xini, draw = False)
+    vor, istop = vf.voronoi(xini, sigma, Aeps, draw = False)
     if istop != 0:
         print('The Voronoi method encountered an error while constructing the manufactured solution')
         sys.exit()
     feval = evalfg(2*nsites, xini, vor)
     for j in range(Num - 1):
         xcurrent = xinit(ninit)
-        vor, istop = voronoi(xcurrent, draw = False)
+        vor, istop = vf.voronoi(xcurrent, sigma, Aeps, draw = False)
         if istop != 0:
             print('The Voronoi method encountered an error while constructing the manufactured solution')
             sys.exit()
@@ -865,24 +804,33 @@ CPU_time = finaltime - starttime
 #Computing the error
 erroropt, errorinit = evalerror(sigma, nsites, mesh, V1, solx, xini, xfinal)
 
+# Drawing the Voronoi diagrams for the ground truth, initialization, and reconstruction
+vorsol, istop = vf.voronoi(solx, sigma, Aeps, draw = True)
+os.system('mpost voronoi.mp')
+os.rename('./voronoi.mp', './solx.mp')
+os.rename('./voronoi.mps', './solx.eps')
+
+vorini, istop = vf.voronoi(xini, sigma, Aeps, draw = True)
+os.system('mpost voronoi.mp')
+os.rename('./voronoi.mp', './xini.mp')
+os.rename('./voronoi.mps', './xini.eps')
+
+vorfinal, istop = vf.voronoi(xfinal, sigma, Aeps, draw = True)
+os.system('mpost voronoi.mp')
+os.rename('./voronoi.mp', './xfinal.mp')
+os.rename('./voronoi.mps', './xfinal.eps')
+
+
 # Calculating the initial value of the cost function and the gradient, without weights
 weightsG = numpy.ones(nsources)
-vor, istop = voronoi(xini, draw = False)
-if istop != 0:
-    print('The Voronoi method encountered an error while constructing the manufactured solution')
-    sys.exit()
-finit1, ginit1 = evalfg(2*nsites, xini, vor, greq = True)
+finit1, ginit1 = evalfg(2*nsites, xini, vorini, greq = True)
 gp = xini - ginit1
 project(2*nsites, gp)
 gp = gp - xini
 normgpinit1 = numpy.linalg.norm(gp)
 
 
-vor, istop = voronoi(xfinal, draw = False)
-if istop != 0:
-    print('The Voronoi method encountered an error while constructing the manufactured solution')
-    sys.exit()
-ffinal1, gfinal1 = evalfg(2*nsites, xfinal, vor, greq = True)
+ffinal1, gfinal1 = evalfg(2*nsites, xfinal, vorfinal, greq = True)
 gp = xfinal - gfinal1
 project(2*nsites, gp)
 gp = gp - xfinal
