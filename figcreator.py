@@ -1,10 +1,11 @@
 import numpy as np
-import gfort2py as gf
+# import gfort2py as gf
 import os, sys
 from pdb import set_trace
 import shutil as sh
 import subprocess
 import parameters as prt
+import files.vorofunction as vf
 
 
 nsites_list = prt.nsites_list
@@ -13,61 +14,61 @@ nsources_list = prt.nsources_list
 nmesh_list = prt.nmesh_list
 noise_coeff_list = prt.noise_coeff_list
 
-def voronoi(x, sigma, draw):
+# def voronoi(x, sigma, draw):
 
-    An = 4
-    Ax = np.array([Aeps, 1.0 - Aeps, 1.0 - Aeps, Aeps, Aeps])
-    Ay = np.array([Aeps, Aeps, 1.0 - Aeps, 1.0 - Aeps, Aeps])
-    Aflag = np.array([4, 2, 3, 1, 4])
+#     An = 4
+#     Ax = np.array([Aeps, 1.0 - Aeps, 1.0 - Aeps, Aeps, Aeps])
+#     Ay = np.array([Aeps, Aeps, 1.0 - Aeps, 1.0 - Aeps, Aeps])
+#     Aflag = np.array([4, 2, 3, 1, 4])
 
-    nsites = int(len(x)/2)
-    sites = np.zeros((nsites,2))
-    for i in range(nsites):
-        sites[i,:] = x[2*i:2*i+2]
+#     nsites = int(len(x)/2)
+#     sites = np.zeros((nsites,2))
+#     for i in range(nsites):
+#         sites[i,:] = x[2*i:2*i+2]
 
-    SHARED_LIB_NAME=f'./files/libvoro.so'
-    MOD_FILE_NAME='./files/voro.mod'
-    user_cache_dir = './files/gfortcache'
+#     SHARED_LIB_NAME=f'./files/libvoro.so'
+#     MOD_FILE_NAME='./files/voro.mod'
+#     user_cache_dir = './files/gfortcache'
 
-    if not os.path.exists(user_cache_dir):
-        # Create the directory if necessary
-            os.makedirs(user_cache_dir)
-    x=gf.fFort(SHARED_LIB_NAME,MOD_FILE_NAME, cache_folder=user_cache_dir)
+#     if not os.path.exists(user_cache_dir):
+#         # Create the directory if necessary
+#             os.makedirs(user_cache_dir)
+#     x=gf.fFort(SHARED_LIB_NAME,MOD_FILE_NAME, cache_folder=user_cache_dir)
     
-    nvmax = 500
-    nv = int(0)
-    vx = np.zeros(nvmax,dtype=float)
-    vy = np.zeros(nvmax,dtype=float)
-    vflag = np.zeros(nvmax,dtype=int)
-    sstart = np.zeros(nsites+1,dtype=int)
-    istop = int(0)
-    mydict = x.voronoi(nsites,sites.T,An,Ax,Ay,Aflag,nvmax,sstart,nv,vx,vy,vflag,istop)[1]
-    istop = (mydict)['istop']
+#     nvmax = 500
+#     nv = int(0)
+#     vx = np.zeros(nvmax,dtype=float)
+#     vy = np.zeros(nvmax,dtype=float)
+#     vflag = np.zeros(nvmax,dtype=int)
+#     sstart = np.zeros(nsites+1,dtype=int)
+#     istop = int(0)
+#     mydict = x.voronoi(nsites,sites.T,An,Ax,Ay,Aflag,nvmax,sstart,nv,vx,vy,vflag,istop)[1]
+#     istop = (mydict)['istop']
 
-    vor = []
-    if istop == 0:
-        sstart = (mydict)['sstart']
-        nv = (mydict)['nv']
-        vx = (mydict)['vx']
-        vy = (mydict)['vy']
-        vectorvflag = (mydict)['vflag']
+#     vor = []
+#     if istop == 0:
+#         sstart = (mydict)['sstart']
+#         nv = (mydict)['nv']
+#         vx = (mydict)['vx']
+#         vy = (mydict)['vy']
+#         vectorvflag = (mydict)['vflag']
 
-        #Ajustando os índices das células
-        for i in range(len(vectorvflag)):
-            if vectorvflag[i] > 0:
-                vectorvflag[i] = vectorvflag[i] - 1
+#         #Ajustando os índices das células
+#         for i in range(len(vectorvflag)):
+#             if vectorvflag[i] > 0:
+#                 vectorvflag[i] = vectorvflag[i] - 1
 
-        for i in range(nsites):
-            cell = []
-            for k in range(sstart[i] - 1,sstart[i+1] - 1):
-                cell.append([[vx[k],vy[k]],vectorvflag[k]])
-            vor.append(cell)
+#         for i in range(nsites):
+#             cell = []
+#             for k in range(sstart[i] - 1,sstart[i+1] - 1):
+#                 cell.append([[vx[k],vy[k]],vectorvflag[k]])
+#             vor.append(cell)
 
-        if draw:
-            colors = sigma.astype(int)
-            x.drawvor(nsites,sites.T,colors,An,Ax,Ay,sstart,nv,vx,vy)
+#         if draw:
+#             colors = sigma.astype(int)
+#             x.drawvor(nsites,sites.T,colors,An,Ax,Ay,sstart,nv,vx,vy)
         
-    return vor, istop
+#     return vor, istop
 
 subprocess.run(["bash", "libraryfortran.sh"], cwd="./files/")
 
@@ -101,19 +102,19 @@ for nsites in nsites_list:
                         name = 'blsfig'+str((k//4))
 
                         
-                    voronoi(solx, sigma, True)
+                    vf.voronoi(solx, sigma, Aeps, True)
                     os.system('mpost voronoi.mp')
                     os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
                     os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
                     l += 1
 
-                    voronoi(xini, sigma, True)
+                    vf.voronoi(xini, sigma, Aeps, True)
                     os.system('mpost voronoi.mp')
                     os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
                     os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
                     l += 1
 
-                    voronoi(xfinal, sigma, True)
+                    vf.voronoi(xfinal, sigma, Aeps, True)
                     os.system('mpost voronoi.mp')
                     os.rename('./voronoi.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
                     os.rename('./voronoi.mps','./results/figures/'+name+str(alphabet[l])+'.eps')
