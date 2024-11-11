@@ -810,19 +810,6 @@ domains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
 # Define internal interface domain
 int_boundary = MeshFunction("size_t", mesh, mesh.topology().dim()-1, 0)
 
-# Phi_l functions that define the domain D:
-# left   -> phi_1 = -x[0] 
-# right  -> phi_2 = x[0] - 1
-# top    -> phi_3 = -x[1] 
-# bottom -> phi_4 = x[1] - 1 
-
-# Gradients:
-gradphi_1 = [-1.0, 0.0]
-gradphi_2 = [1.0, 0.0]
-gradphi_3 = [0.0, -1.0]
-gradphi_4 = [0.0, 1.0]
-gradphi = [[0.0, 0.0], gradphi_1, gradphi_2, gradphi_3, gradphi_4]
-
 #----------------
 # Data
 #----------------
