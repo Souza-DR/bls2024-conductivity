@@ -25,6 +25,10 @@ if measurement == 'Boundary' and Aeps == 0.0:
     print('Warning: For the case of boundary measurements, the width of the domain boundary should be Aeps > 0.0')
     sys.exit()
 
+if measurement == 'Internal' and Aeps > 0.0:
+    print('Warning: For the case of internal measurements, the width of the domain boundary should be Aeps = 0.0')
+    sys.exit()
+
 if measurement == 'Boundary' and not set(nsources_list).issubset({1, 3}):
     print('Warning: For the case with boundary measurements, the number of sources (nsources) must be 1 or 3')
     sys.exit()
@@ -58,6 +62,7 @@ for nsites in nsites_list:
                     sh.copyfile("./files/voro.f90", input_files+"/voro.f90")
                     sh.copyfile("./files/voroextras.f90", input_files+"/voroextras.f90")
                     sh.copyfile("./files/"+measurement+".py", input_files+"/"+measurement+".py")
+                    sh.copyfile("./files/vorofunction.py", input_files+"/vorofunction.py")
 
                     with open(input_files+"/instance.sh", "w") as f:
                         f.write(r"""#!/bin/bash
@@ -132,6 +137,15 @@ if not os.path.exists("./results/data"):
     # Create the directory if necessary
     os.makedirs('./results/data')
 
+alphabet = []
+for i in range(97, 123):
+    alphabet.append(chr(i))
+
+count = 0
+if not os.path.exists('./results/figures'):
+    # Create the directory if necessary
+    os.makedirs('./results/figures')
+
 #Accessing each test's folder to retrieve their respective data
 for nsites in nsites_list:
     for nmesh in nmesh_list:
@@ -140,8 +154,27 @@ for nsites in nsites_list:
                 for ninit in ninit_list:
                     # Validating the existence of instance data to confirm the success or failure of the instance creation
                     filename = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
-                    if os.path.exists("./instances/"+filename):  
+                    if os.path.exists("./instances/"+filename):
+                        
+                        if count % 4 == 0:
+                            l = 0
+                            name = 'blsfig'+str((count//4))
+
                         sh.move("./instances/"+filename+'/'+filename+'.npz', './results/data/'+filename+'.npz')
+
+                        sh.move("./instances/"+filename+'/solx.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
+                        sh.move("./instances/"+filename+'/solx.eps', './results/figures/'+name+str(alphabet[l])+'.eps')
+                        l += 1
+
+                        sh.move("./instances/"+filename+'/xini.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
+                        sh.move("./instances/"+filename+'/xini.eps', './results/figures/'+name+str(alphabet[l])+'.eps')
+                        l += 1
+
+                        sh.move("./instances/"+filename+'/xfinal.mp', './results/figures/'+name+str(alphabet[l])+'.mp')
+                        sh.move("./instances/"+filename+'/xfinal.eps', './results/figures/'+name+str(alphabet[l])+'.eps')
+                        l += 1
+                        count += 1
+
                    
 #Delete the directorie and all your files.
 sh.rmtree("./instances/")
