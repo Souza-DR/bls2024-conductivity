@@ -1,20 +1,19 @@
 import numpy as np
-import sys, os
+import sys, os, random
 import shutil as sh
-import gfort2py as gf
-import subprocess
-from pdb import set_trace
 import parameters as prt
+import files.groundtruth as gt
 
 measurement = prt.measurement
 typeproblem = prt.typeproblem
 typeinit = prt.typeinit
-N = prt.N
+Num = prt.Num
 Aeps = prt.Aeps
 maxit = prt.maxit
 eps = prt.eps
 maxtime = prt.maxtime
 nsites_list = prt.nsites_list
+type_GT = prt.type_Ground_Truth
 ninit_list = prt.ninit_list
 nsources_list = prt.nsources_list
 nmesh_list = prt.nmesh_list
@@ -37,6 +36,10 @@ if measurement == 'Internal' and not set(nsources_list).issubset({1, 2, 3, 4}):
     print('Warning: For cases with internal measurements, the number of sources (nsources) must be chosen between 1 and 4')
     sys.exit()
 
+if typeinit not in [1, 2, 3]:
+    print('Error: The variable typeinit must be equal to 1, 2, or 3.')
+    sys.exit()
+
 if (typeinit == 2 or typeinit == 3) and max(ninit_list) > 1:
     print('Warning: if typeinit = 2 or 3, then make ninit_list=(1)')
     sys.exit()
@@ -49,22 +52,61 @@ for nsites in nsites_list:
             for nsources in nsources_list:                
                 for ninit in ninit_list:
                     
-                    input_files = "./instances/"+str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
+                    namefile = str(nsites)+'_'+str(nsources)+'_'+str(nmesh)+'_'+str(int(1000.0*noise_coeff))+'_'+str(ninit)
 
-                    if not os.path.exists(input_files):
-                        os.makedirs(input_files)
+                    if not os.path.exists("./instances/"+namefile):
+                        os.makedirs("./instances/"+namefile)
                     
-                    sh.copyfile("./files/drand.f90", input_files+"/drand.f90")
-                    sh.copyfile("./files/geometry.f90", input_files+"/geometry.f90")
-                    sh.copyfile("./files/geompack2.f90", input_files+"/geompack2.f90")
-                    sh.copyfile("./files/mergesort.f90", input_files+"/mergesort.f90")
-                    sh.copyfile("./files/vorintpols.f90", input_files+"/vorintpols.f90")
-                    sh.copyfile("./files/voro.f90", input_files+"/voro.f90")
-                    sh.copyfile("./files/voroextras.f90", input_files+"/voroextras.f90")
-                    sh.copyfile("./files/"+measurement+".py", input_files+"/"+measurement+".py")
-                    sh.copyfile("./files/vorofunction.py", input_files+"/vorofunction.py")
+                    if type_GT == "default":                            
+                        solx = gt.get_data(nsites)
+                    elif type_GT == "input":
+                        solx = np.zeros(2*nsites)
+                        for j in range(2*nsites):
+                            if j%2 == 0:
+                                try: 
+                                    x = float(input(f"Provide the coordinate {Aeps} < x < {1.0 - Aeps} for site a_{j//2} [Example: 0.5]: "))
 
-                    with open(input_files+"/instance.sh", "w") as f:
+                                    if Aeps < x < 1.0 - Aeps:
+                                        solx[j] = x
+                                    else: 
+                                        print(f"The provided coordinate is not within the interval ({Aeps}, {1.0 - Aeps})")    
+                                        sys.exit()
+                                except ValueError:
+                                         print("Invalid input! Please provide a valid numeric value.")
+                                         sys.exit()
+                            else:
+                                try:
+                                    y = float(input(f"Provide the coordinate {Aeps} < y < {1.0 - Aeps} for site a_{j//2} [Example: 0.5]: "))
+                                    if Aeps < y < 1.0 - Aeps:
+                                        solx[j] = y
+                                    else: 
+                                        print(f"The provided coordinate is not within the interval ({Aeps}, {1.0 - Aeps})")
+                                        sys.exit()
+                                except ValueError:
+                                        print("Invalid input! Please provide a valid numeric value.")
+                                        sys.exit()
+                    else:
+                        solx = np.zeros(2*nsites)
+                        for j in range(2*nsites):
+                            lbda = random.random()
+                            solx[j] = lbda*(Aeps + 0.01) + (1.0 - lbda)*(0.99 - Aeps)
+
+                    np.savez("./instances/"+namefile+'/'+namefile+".npz", solx=solx)
+                    
+                    
+                    sh.copyfile("./files/drand.f90", "./instances/"+namefile+"/drand.f90")
+                    sh.copyfile("./files/geometry.f90", "./instances/"+namefile+"/geometry.f90")
+                    sh.copyfile("./files/geompack2.f90", "./instances/"+namefile+"/geompack2.f90")
+                    sh.copyfile("./files/mergesort.f90", "./instances/"+namefile+"/mergesort.f90")
+                    sh.copyfile("./files/vorintpols.f90", "./instances/"+namefile+"/vorintpols.f90")
+                    sh.copyfile("./files/voro.f90", "./instances/"+namefile+"/voro.f90")
+                    sh.copyfile("./files/voroextras.f90", "./instances/"+namefile+"/voroextras.f90")
+                    sh.copyfile("./files/"+measurement+".py", "./instances/"+namefile+"/"+measurement+".py")
+                    sh.copyfile("./files/vorofunction.py", "./instances/"+namefile+"/vorofunction.py")
+                                        
+
+
+                    with open("./instances/"+namefile+"/instance.sh", "w") as f:
                         f.write(r"""#!/bin/bash
 DIR=./gfortcache
 
@@ -82,7 +124,7 @@ typeproblem="""+str(typeproblem)+r"""
 
 typeinit="""+str(typeinit)+r"""
 
-N="""+str(N)+r"""
+N="""+str(Num)+r"""
 
 Aeps="""+str(Aeps)+r"""
 
