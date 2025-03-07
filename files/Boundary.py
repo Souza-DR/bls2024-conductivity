@@ -61,6 +61,72 @@ def omega(x):
 def rotate(x):
     return np.array([-x[1], x[0]])
 
+def psiv(a, v, w):
+    return Expression("-((x[0] - w0)*aw0 + (x[1] - w1)*aw1) / denpsiv", degree=2, w0 = w[0], w1 = w[1], aw0 = (rotate(a - w))[0], aw1 = (rotate(a - w))[1], denpsiv = np.inner(a - v, rotate(a - w)))
+
+def gradpsiv(a, v, w):
+    den = np.inner(a - v, rotate(a - w))
+    if near(den, 0.0, DOLFIN_EPS):
+        print('In gradpsiv, den is close to zero.')
+    return - rotate(a - w) / den
+
+def Mvl(v, gradphil, aj, ai):
+    detval = np.linalg.det(np.array([aj - ai, gradphil]))
+    if near(detval, 0.0, DOLFIN_EPS):
+        print('In Mvl, detval is close to zero')
+    return - np.outer(rotate(gradphil), v - ai) / detval
+
+def Mv(v,ai, aj, ak):
+    detval = np.linalg.det(np.array([aj - ai, ak - ai]))
+    if near(detval, 0.0, DOLFIN_EPS):
+        print('In Mv, detval is close to zero')
+    return np.outer(rotate(ai - aj), (v - ak)) / detval
+
+def tcoeff(p0, p1, p2):
+    tcoeffval = np.zeros((3,3))
+
+    T = np.array([p0, p1, p2])
+    
+    for i in range(3):
+        ip1 = (i + 1) % 3
+        ip2 = (i + 2) % 3
+    
+        a = T[ip1,1] - T[i,1]
+        b = T[i,0] - T[ip1,0]
+        c = (T[i,1] - T[ip1,1]) * T[i,0] + (T[ip1,0] - T[i,0]) * T[i,1]
+
+        tcoeffval[i,:] = [a,b,c]
+
+        if a * T[ip2,0] + b * T[ip2,1] + c <= 0.0:
+            tcoeffval[i,:] = - tcoeffval[i,:]
+
+    return tcoeffval
+
+def triangintdom(site, v, vprev, vnext):
+    # # Coefficients of the straight lines that determine a triangle.
+    tcoeffvalprev = tcoeff(site,v,vprev)
+    a0 = tcoeffvalprev[0,0]; b0 = tcoeffvalprev[0,1]; c0 = tcoeffvalprev[0,2]
+    a1 = tcoeffvalprev[1,0]; b1 = tcoeffvalprev[1,1]; c1 = tcoeffvalprev[1,2]
+    a2 = tcoeffvalprev[2,0]; b2 = tcoeffvalprev[2,1]; c2 = tcoeffvalprev[2,2]
+
+    tcoeffvalnext = tcoeff(site,v,vnext)
+    A0 = tcoeffvalnext[0,0]; B0 = tcoeffvalnext[0,1]; C0 = tcoeffvalnext[0,2]
+    A1 = tcoeffvalnext[1,0]; B1 = tcoeffvalnext[1,1]; C1 = tcoeffvalnext[1,2]
+    A2 = tcoeffvalnext[2,0]; B2 = tcoeffvalnext[2,1]; C2 = tcoeffvalnext[2,2]
+
+    for cell in cells(mesh):
+        p1 = np.array([cell.get_vertex_coordinates()[0], cell.get_vertex_coordinates()[1]])
+        p2 = np.array([cell.get_vertex_coordinates()[2], cell.get_vertex_coordinates()[3]])
+        p3 = np.array([cell.get_vertex_coordinates()[4], cell.get_vertex_coordinates()[5]])
+        ic = incenter(p1, p2, p3)
+
+        if a0 * ic[0] + b0 * ic[1] + c0 >= 0.0 and a1 * ic[0] + b1 * ic[1] + c1 >= 0.0 and a2 * ic[0] + b2 * ic[1] + c2 >= 0.0:
+            triangdomains.array()[cell.index()] = 1
+        elif A0 * ic[0] + B0 * ic[1] + C0 >= 0.0 and A1 * ic[0] + B1 * ic[1] + C1 >= 0.0 and A2 * ic[0] + B2 * ic[1] + C2 >= 0.0:
+            triangdomains.array()[cell.index()] = 2
+        else: 
+            triangdomains.array()[cell.index()] = 0
+
 def incenter(A, B, C):
     a = np.linalg.norm(B-C)
     b = np.linalg.norm(C-A)
@@ -180,7 +246,7 @@ def evalerror(sigma, nsites, mesh, V, solx, xini, xfinal):
 
     return error_opt, error_init 
 
-def evalfg(n, x, vor, greq=False):
+def evalfg(n, x, vor, greq=False, gbound=True, gdistr=False):
     nsites = int(n/2)
     sites = np.zeros((nsites,2))
     for i in range(nsites):
@@ -195,6 +261,7 @@ def evalfg(n, x, vor, greq=False):
 
     G = 0.0
     gradGbound = np.zeros(2*nsites)
+    gradGdistr = np.zeros(2*nsites)
 
     for alpha in range(nsources):
  
@@ -308,39 +375,54 @@ def evalfg(n, x, vor, greq=False):
             solve(aa, Hsol.vector(), LL)
 
             for i in range(nsites):
+
+                if gdistr:
                     
-                grad_usol = grad(usol)
-                grad_vsol = grad(vsol)
-                grad_psol = grad(psol)
-                grad_qsol = grad(qsol)
-                grad_Hsol = grad(Hsol)
+                    ### Volumetric Approach ###
+                    temp = 0.5*(usol - h[alpha])**2 - fsource[alpha]*psol + inner(grad(usol), grad(psol)) + Constant(sigma[i])*usol*psol
 
-                # the terms that are continuous can be removed because they cancel out at the interface of two cells
+                    # Warning: In case of non-constant fsource and Volumetric Approach, the derivative of fsource must be calculated explicitly.
+                    # S0 = (h[alpha] - usol)*grad(h[alpha]) - grad(fsource[alpha])
+                    S0 = (h[alpha] - usol)*grad(h[alpha])
 
-                # tempplus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+                    S1 = Identity(2)*temp
+                    S1 = S1 - outer(grad(psol),grad(usol)) - outer(grad(usol),grad(psol))
+                    
+                if gbound:
+                    
+                    grad_usol = grad(usol)
+                    grad_vsol = grad(vsol)
+                    grad_psol = grad(psol)
+                    grad_qsol = grad(qsol)
+                    grad_Hsol = grad(Hsol)
 
-                tempplus = Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+                    # the terms that are continuous can be removed because they cancel out at the interface of two cells
 
-                S1plus = Identity(2)*tempplus 
+                    # tempplus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
 
-                S1plus = S1plus - outer(grad_psol('+'),Constant(sigma[i])*grad_usol('+')) - outer(Constant(sigma[i])*(grad_usol('+') - grad_Hsol('+')), grad_psol('+')) - outer(grad_qsol('+'),Constant(sigma[i])*grad_vsol('+')) - outer(Constant(sigma[i])*(grad_vsol('+') - grad_Hsol('+')),grad_qsol('+'))
-            
-                # the terms that are continuous can be removed because they cancel out at the interface of two cells
+                    tempplus = Constant(sigma[i])*(inner(grad_usol('+'), grad_psol('+')) + inner(grad_vsol('+'), grad_qsol('+')))
+
+                    S1plus = Identity(2)*tempplus 
+
+                    S1plus = S1plus - outer(grad_psol('+'),Constant(sigma[i])*grad_usol('+')) - outer(Constant(sigma[i])*(grad_usol('+') - grad_Hsol('+')), grad_psol('+')) - outer(grad_qsol('+'),Constant(sigma[i])*grad_vsol('+')) - outer(Constant(sigma[i])*(grad_vsol('+') - grad_Hsol('+')),grad_qsol('+'))
                 
-                # tempminus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
+                    # the terms that are continuous can be removed because they cancel out at the interface of two cells
+                    
+                    # tempminus = 0.5*(usol - vsol)**2  + Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
 
-                tempminus = Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
+                    tempminus = Constant(sigma[i])*(inner(grad_usol('-'), grad_psol('-')) + inner(grad_vsol('-'), grad_qsol('-')))
 
-                S1minus = Identity(2)*tempminus
-                
-                S1minus = S1minus - outer(grad_psol('-'),Constant(sigma[i])*grad_usol('-')) - outer(Constant(sigma[i])*(grad_usol('-') - grad_Hsol('-')), grad_psol('-')) - outer(grad_qsol('-'),Constant(sigma[i])*grad_vsol('-')) - outer(Constant(sigma[i])*(grad_vsol('-') - grad_Hsol('-')),grad_qsol('-'))
+                    S1minus = Identity(2)*tempminus
+                    
+                    S1minus = S1minus - outer(grad_psol('-'),Constant(sigma[i])*grad_usol('-')) - outer(Constant(sigma[i])*(grad_usol('-') - grad_Hsol('-')), grad_psol('-')) - outer(grad_qsol('-'),Constant(sigma[i])*grad_vsol('-')) - outer(Constant(sigma[i])*(grad_vsol('-') - grad_Hsol('-')),grad_qsol('-'))
 
                 for r in range(len(vor[i])):
                     v = ((vor[i])[r])[0]
                     vflag = ((vor[i])[r])[1]
                     vnext = ((vor[i])[(r+1)%len(vor[i])])[0]
 
-                    if vflag >= 0:
+                    ### Boundary Expression ###
+                    if gbound and (vflag >= 0):
                         # The neighboring cells of the inner edge E are a_i and a_vflag
                         nu = rotate(np.array(v) - np.array(vnext))/np.linalg.norm(np.array(v) - np.array(vnext))
                         den = np.linalg.norm(sites[vflag,:] - sites[i, :])
@@ -361,12 +443,75 @@ def evalfg(n, x, vor, greq=False):
                             
                         gradGbound[2*vflag:2*vflag+2] = gradGbound[2*vflag:2*vflag+2] - weightsG[alpha] * np.array([hkE0, hkE1])
 
-                        gradGbound[2*i:2*i+2] = gradGbound[2*i:2*i+2] + weightsG[alpha] * np.array([hiE0, hiE1]) 
+                        gradGbound[2*i:2*i+2] = gradGbound[2*i:2*i+2] + weightsG[alpha] * np.array([hiE0, hiE1])
+
+                    ### Volumetric Approach ###
+                    if gdistr and (vprevflag >= 0 or vflag >= 0):    
+                        # Tag the integration domain
+                        triangintdom(sites[i,:],v,vprev, vnext)
+                        dt = Measure('dx')(subdomain_data=triangdomains)                  
+                        
+                        psivvalvprev = psiv(sites[i,:], v, vprev)
+                        gradpsivvalTemp = gradpsiv(sites[i,:],v,vprev)
+                        gradpsivval = Constant((gradpsivvalTemp[0], gradpsivvalTemp[1]))
+                  
+                        Tivw0 = assemble(((S1*gradpsivval + S0*psivvalvprev)[0])*dt(1))
+                        Tivw1 = assemble(((S1*gradpsivval + S0*psivvalvprev)[1])*dt(1))
+                        
+                        psivvalvnext = psiv(sites[i,:], v, vnext)
+                        gradpsivvalTemp = gradpsiv(sites[i,:],v,vnext)
+                        gradpsivval = Constant((gradpsivvalTemp[0], gradpsivvalTemp[1]))                  
+                    
+                        Tivw0 = Tivw0 + assemble(((S1*gradpsivval + S0*psivvalvnext)[0])*dt(2))
+                        Tivw1 = Tivw1 + assemble(((S1*gradpsivval + S0*psivvalvnext)[1])*dt(2))
+
+                        if (vprevflag < 0 or vflag < 0):
+                            j = max(vprevflag, vflag)
+                            l = int(- min(vprevflag, vflag))
+
+                            # Definindo qual vizinho está no intervalo de integração
+                            if vflag >= 0:
+                                w = vprev
+                            else:
+                                w = vnext
+
+                            gradpsivvalTemp = gradpsiv(sites[i,:],v,w)
+                            gradpsivval = Constant((gradpsivvalTemp[0], gradpsivvalTemp[1])) 
+
+                            mvl = Mvl(v,gradphi[l],sites[j,:],sites[i,:])
+                            gradGdistr[2*i:2*i+2] = gradGdistr[2*i:2*i+2] + weightsG[alpha] * np.matmul(mvl.T,[Tivw0, Tivw1])
+                            
+                            mvl = Mvl(v,gradphi[l],sites[i,:],sites[j,:])
+                            gradGdistr[2*j:2*j+2] = gradGdistr[2*j:2*j+2] + weightsG[alpha] * np.matmul(mvl.T,[Tivw0, Tivw1])
+                        else:
+                            j = vprevflag; k = vflag #it could also be j = vflag; k = vprevflag 
+
+                            mvjki = Mv(v,sites[j,:],sites[k,:], sites[i,:])
+                            gradGdistr[2*i:2*i+2] = gradGdistr[2*i:2*i+2] + weightsG[alpha] * np.matmul(mvjki.T,[Tivw0, Tivw1])
+                            
+                            mvkij = Mv(v,sites[k,:],sites[i,:], sites[j,:])
+                            gradGdistr[2*j:2*j+2] = gradGdistr[2*j:2*j+2] + weightsG[alpha] * np.matmul(mvkij.T,[Tivw0, Tivw1])
+
+                            mvijk = Mv(v,sites[i,:],sites[j,:], sites[k,:])
+                            gradGdistr[2*k:2*k+2] = gradGdistr[2*k:2*k+2] + weightsG[alpha] * np.matmul(mvijk.T,[Tivw0, Tivw1])
+                            
+                    vprev = v
+                    vprevflag = vflag 
                              
     if greq:
         return G, gradGbound
     else:
         return G
+    
+    # if greq:
+    #     if gdistr == True and gbound == True:
+    #         return G, gradGdistr, gradGbound
+    #     if gdistr == True and gbound == False:
+    #         return G, gradGdistr
+    #     if gdistr == False and gbound == True:
+    #         return G, gradGbound
+    # else:
+    #     return G
 
 def newfvalues(f, fvalues):
         M = len(fvalues)
@@ -583,6 +728,18 @@ domains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
 
 # Define internal interface domain
 int_boundary = MeshFunction("size_t", mesh, mesh.topology().dim()-1, 0)
+
+# Definindo o domínio triangular de integração
+triangdomains = MeshFunction("size_t", mesh, mesh.topology().dim(), 0)
+
+#Funções phi_l que definem o domínio D: left-> phi_1 = -x[0], right-> phi_2 = x[0] - 1, top-> phi_3 = -x[1], bottom-> phi_4 = x[1] - 1 
+#Gradientes:
+
+gradphi_1 = [-1.0, 0.0]
+gradphi_2 = [1.0, 0.0]
+gradphi_3 = [0.0, -1.0]
+gradphi_4 = [0.0, 1.0]
+gradphi = [[0.0, 0.0], gradphi_1, gradphi_2, gradphi_3, gradphi_4]
 
 #----------------
 # Data
